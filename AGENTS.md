@@ -15,16 +15,63 @@ Run: `out/Debug/cppreference-mcp` (binary + `config.json` copied alongside)
 
 ```
 src/
-├── main.cpp                  — thin entry point
+├── main.cpp                  — entry point, config path resolution (macOS/Linux)
 ├── client/                   — cppreference.com HTTP client
+│   ├── search()              — HTML search → regex extract /cpp/ links
+│   └── get_page_content()    — MediaWiki JSON API → revision content
 ├── server/                   — MCP JSON-RPC 2.0 server
+│   ├── handle_initialize()   — protocol handshake
+│   ├── handle_tools_list()   — advertise cppreference/lookup tool
+│   ├── handle_tools_call()   — dispatch to thread pool with timeout
+│   └── handle_tools_call_sync() — search → cache lookup → fetch → truncate
 ├── config/                   — JSON config file loader
-├── cache/                    — TTL-based cache wrapper
-├── db/                       — SQLite database layer
-└── thread_pool/              — Async task queue (50+ connections)
+├── cache/                    — TTL-based SQLite cache wrapper (thread-safe)
+│   ├── get()                 — mutex-locked, evict_expired every 50 calls
+│   ├── put()                 — eviction before insert, row-count-based sizing
+│   └── evict_expired()       — periodic TTL cleanup
+├── db/                       — SQLite database layer (WAL mode)
+│   ├── get()                 — filtered by expires_at > now
+│   ├── put()                 — INSERT OR REPLACE with TTL
+│   ├── evict_oldest()        — DELETE oldest rows by expires_at
+│   ├── evict_expired()       — DELETE WHERE expires_at <= now
+│   ├── checkpoint()          — PASSIVE WAL checkpoint
+│   └── row_count()           — SELECT COUNT(*)
+└── thread_pool/              — Async task queue (future-based)
+    ├── submit()              — template method, returns std::future
+    ├── wait_all()            — blocks until all tasks complete
+    └── wait_all_with_timeout() — waits with deadline
 ```
 
 Namespaces match folder structure: `cppreference::client`, `cppreference::server`, etc.
+
+## Threading
+
+- **HTTP client**: `std::mutex` protects shared `httplib::Client` during `Get()` calls. Client is a `unique_ptr` created once in the constructor.
+- **Cache**: `std::mutex` serializes all `get`/`put`/`remove`/`evict_expired`/`size_bytes`/`row_count` calls. `get_call_count_` is `std::atomic`.
+- **Server logging**: `static std::mutex log_mutex_` prevents interleaved output from concurrent thread pool workers.
+- **Thread pool**: Worker threads process `handle_tools_call_sync` tasks with configurable timeout (5× client timeout).
+- **SQLite**: Opened with `SQLITE_OPEN_NOMUTEX` — all access must be synchronized by the caller (enforced via `Cache` mutex).
+
+## Key Design Decisions
+
+### Search Strategy
+- Uses HTML search page (`/index.php?title=Special:Search`) instead of broken MediaWiki JSON search API (which fails on `::` queries).
+- Regex extracts `/cpp/...` hrefs from search results.
+- Returns first `cpp/` path (e.g., `cpp/container/vector`).
+
+### Page Content
+- Uses MediaWiki REST API (`/api.php?action=query&prop=revisions&rvprop=content&format=json`) which works reliably with `cpp/` title paths.
+
+### Cache Eviction
+- **Before insert**: size check and eviction happen before `put()` to prevent exceeding `max_size_mb`.
+- **Row-count-based**: `to_evict = (overage * 11) / (avg_row_size * 10)` — estimates average row size from current total size / row count, evicts enough rows to cover the overage with 10% headroom.
+- **TTL expiration**: `evict_expired()` called automatically every 50 `get()` calls via atomic counter.
+
+### HTTP Client
+- `std::unique_ptr<httplib::Client>` — single instance for lifetime of `Client`.
+- Browser User-Agent to avoid 403 responses from cppreference.com.
+- Connection keep-alive (no per-request teardown).
+- Retry loop with configurable delay on 429/503 and connection failures.
 
 ## Dependencies
 
