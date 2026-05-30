@@ -1,0 +1,128 @@
+[
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/src\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=gnu++20 -arch arm64 -Wno-deprecated-declarations -o CMakeFiles/email_backup.dir/src/main.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/src/main.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/src/main.cpp",
+  "output": "CMakeFiles/email_backup.dir/src/main.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/src\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=gnu++20 -arch arm64 -Wno-deprecated-declarations -o CMakeFiles/email_backup.dir/src/config/config.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/src/config/config.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/src/config/config.cpp",
+  "output": "CMakeFiles/email_backup.dir/src/config/config.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/src\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=gnu++20 -arch arm64 -Wno-deprecated-declarations -o CMakeFiles/email_backup.dir/src/logger/logger.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/src/logger/logger.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/src/logger/logger.cpp",
+  "output": "CMakeFiles/email_backup.dir/src/logger/logger.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/src\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=gnu++20 -arch arm64 -Wno-deprecated-declarations -o CMakeFiles/email_backup.dir/src/thread_pool/thread_pool.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/src/thread_pool/thread_pool.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/src/thread_pool/thread_pool.cpp",
+  "output": "CMakeFiles/email_backup.dir/src/thread_pool/thread_pool.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/src\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=gnu++20 -arch arm64 -Wno-deprecated-declarations -o CMakeFiles/email_backup.dir/src/email/email_processor.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/src/email/email_processor.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/src/email/email_processor.cpp",
+  "output": "CMakeFiles/email_backup.dir/src/email/email_processor.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -DFMT_SHARED -DSPDLOG_COMPILED_LIB -DSPDLOG_FMT_EXTERNAL -DSPDLOG_SHARED_LIB -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/src\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=gnu++20 -arch arm64 -Wno-deprecated-declarations -o CMakeFiles/email_backup.dir/src/email/email_utils.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/src/email/email_utils.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/src/email/email_utils.cpp",
+  "output": "CMakeFiles/email_backup.dir/src/email/email_utils.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/base64.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/base64.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/base64.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/base64.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/binary.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/binary.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/binary.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/binary.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/bit7.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/bit7.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/bit7.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/bit7.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/bit8.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/bit8.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/bit8.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/bit8.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/codec.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/codec.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/codec.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/codec.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/dialog.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/dialog.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/dialog.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/dialog.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/imap.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/imap.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/imap.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/imap.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/mailboxes.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/mailboxes.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/mailboxes.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/mailboxes.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/message.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/message.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/message.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/message.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/mime.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/mime.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/mime.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/mime.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/percent.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/percent.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/percent.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/percent.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/pop3.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/pop3.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/pop3.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/pop3.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/quoted_printable.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/quoted_printable.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/quoted_printable.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/quoted_printable.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/q_codec.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/q_codec.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/q_codec.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/q_codec.cpp.o"
+},
+{
+  "directory": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build",
+  "command": "/usr/bin/c++ -DBOOST_DATE_TIME_DYN_LINK -DBOOST_DATE_TIME_NO_LIB -DBOOST_REGEX_DYN_LINK -DBOOST_REGEX_NO_LIB -Dmailio_EXPORTS -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-build\" -I\"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/include\" -isystem /opt/homebrew/include -isystem /opt/homebrew/opt/openssl/include -g -std=c++17 -arch arm64 -fPIC -Wall -Wextra -Wpedantic -o CMakeFiles/mailio.dir/src/smtp.cpp.o -c \"/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/smtp.cpp\"",
+  "file": "/Volumes/Macintosh HD2/projects/utilities/email_backup/cmake-build-debug/_deps/mailio-src/src/smtp.cpp",
+  "output": "_deps/mailio-build/CMakeFiles/mailio.dir/src/smtp.cpp.o"
+}
+]
