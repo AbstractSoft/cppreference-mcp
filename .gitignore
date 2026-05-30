@@ -33,3 +33,8 @@ opencode.json
 # Linux
 *~
 sessions/
+
+# Runtime cache
+*.db
+*.db-shm
+*.db-wal
