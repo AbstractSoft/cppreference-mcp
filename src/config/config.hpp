@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CPPREFERENCE_CONFIG_CONFIG_HPP
+#define CPPREFERENCE_CONFIG_CONFIG_HPP
 
 #include <string>
 #include <cstdint>
@@ -44,3 +45,5 @@ private:
 };
 
 } // namespace cppreference::config
+
+#endif // CPPREFERENCE_CONFIG_CONFIG_HPP

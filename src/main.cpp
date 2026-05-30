@@ -9,6 +9,10 @@
 #include <unistd.h>
 #endif
 
+#ifndef PATH_MAX
+#define PATH_MAX 4096
+#endif
+
 namespace {
 
 std::string get_exe_dir() {
@@ -45,14 +49,11 @@ int main() {
     try {
         if (std::filesystem::exists(config_path)) {
             cppreference::config::Config cfg{config_path};
-            cppreference::server::Server server{cfg.get_client_config()};
+            cppreference::server::Server server{cfg};
             server.run();
         } else {
-            cppreference::config::ClientConfig default_config;
-            default_config.base_url = "https://en.cppreference.com";
-            default_config.timeout_seconds = 10;
-            cppreference::server::Server server{default_config};
-            server.run();
+            std::cerr << "Warning: config.json not found, using defaults" << '\n';
+            return 1;
         }
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';

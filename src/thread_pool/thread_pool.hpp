@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CPPREFERENCE_THREAD_POOL_THREAD_POOL_HPP
+#define CPPREFERENCE_THREAD_POOL_THREAD_POOL_HPP
 
 #include <chrono>
 #include <functional>
@@ -70,3 +71,5 @@ auto ThreadPool::submit(F&& f, Args&&... args) -> std::future<std::invoke_result
 }
 
 } // namespace cppreference::thread_pool
+
+#endif // CPPREFERENCE_THREAD_POOL_THREAD_POOL_HPP

@@ -28,6 +28,7 @@ SqliteDb::~SqliteDb() {
     if (stmt_evict_expired_) sqlite3_finalize(stmt_evict_expired_);
     if (stmt_evict_oldest_) sqlite3_finalize(stmt_evict_oldest_);
     if (stmt_size_) sqlite3_finalize(stmt_size_);
+    if (stmt_row_count_) sqlite3_finalize(stmt_row_count_);
     if (db_) sqlite3_close(db_);
 }
 
@@ -89,6 +90,12 @@ void SqliteDb::init() {
     rc = sqlite3_prepare_v2(db_, sql_size, -1, &stmt_size_, nullptr);
     if (rc != SQLITE_OK) {
         throw std::runtime_error(std::string{"Failed to prepare size statement: "} + sqlite3_errmsg(db_));
+    }
+
+    const char* sql_row_count = "SELECT COUNT(*) FROM cache";
+    rc = sqlite3_prepare_v2(db_, sql_row_count, -1, &stmt_row_count_, nullptr);
+    if (rc != SQLITE_OK) {
+        throw std::runtime_error(std::string{"Failed to prepare row_count statement: "} + sqlite3_errmsg(db_));
     }
 }
 
@@ -163,13 +170,30 @@ bool SqliteDb::evict_oldest(size_t count) {
     return rc == SQLITE_OK || rc == SQLITE_DONE;
 }
 
+void SqliteDb::checkpoint() {
+    int pnLog = 0, pnCkpt = 0;
+    sqlite3_wal_checkpoint_v2(db_, "main", SQLITE_CHECKPOINT_PASSIVE, &pnLog, &pnCkpt);
+}
+
 size_t SqliteDb::size_bytes() const {
     int rc = sqlite3_step(stmt_size_);
     
-    sqlite3_reset(const_cast<sqlite3_stmt*>(stmt_size_));
+    sqlite3_reset(stmt_size_);
 
     if (rc == SQLITE_ROW) {
         return static_cast<size_t>(sqlite3_column_int64(stmt_size_, 0));
+    }
+
+    return 0;
+}
+
+size_t SqliteDb::row_count() const {
+    int rc = sqlite3_step(stmt_row_count_);
+    
+    sqlite3_reset(stmt_row_count_);
+
+    if (rc == SQLITE_ROW) {
+        return static_cast<size_t>(sqlite3_column_int64(stmt_row_count_, 0));
     }
 
     return 0;
