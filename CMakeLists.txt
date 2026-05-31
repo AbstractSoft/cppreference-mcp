@@ -61,6 +61,13 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cpp-httplib)
 
+# Shared thread-pool library (sibling project)
+FetchContent_Declare(
+        thread_pool
+        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../thread-pool"
+)
+FetchContent_MakeAvailable(thread_pool)
+
 # SQLite3
 find_package(SQLite3 REQUIRED)
 
@@ -72,7 +79,6 @@ add_executable(cppreference-mcp
         src/db/sqlite_db.hpp
         src/db/sqlite_db.cpp
         src/cache/cache.cpp
-        src/thread_pool/thread_pool.cpp
         src/parser/parser.cpp
 )
 
@@ -81,6 +87,7 @@ target_link_libraries(cppreference-mcp PRIVATE
         nlohmann_json::nlohmann_json
         httplib::httplib
         ${SQLITE3_LIBRARIES}
+        thread_pool::thread_pool
 )
 if(NOT SQLITE3_LIBRARIES)
     target_link_libraries(cppreference-mcp PRIVATE sqlite3)

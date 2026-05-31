@@ -11,12 +11,15 @@
 #include "cache/cache.hpp"
 #include "client/client.hpp"
 #include "config/config.hpp"
-#include "thread_pool/thread_pool.hpp"
 
 #include <httplib.h>
+#include "thread_pool/thread_pool.hpp"
 
 namespace cppreference::server
 {
+    // Re-export from shared library for backward compatibility
+    using thread_pool::ThreadPool;
+
     class Server
     {
     public:
@@ -34,7 +37,7 @@ namespace cppreference::server
         config::Config config_;
         client::Client client_;
         cache::Cache cache_;
-        thread_pool::ThreadPool pool_;
+        ThreadPool pool_;
         std::size_t max_output_chars_ = 0;
 
         std::unique_ptr<httplib::Server> http_server_;
