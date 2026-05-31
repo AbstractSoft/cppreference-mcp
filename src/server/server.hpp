@@ -1,35 +1,45 @@
-#ifndef CPPREFERENCE_SERVER_SERVER_HPP
-#define CPPREFERENCE_SERVER_SERVER_HPP
+#ifndef CPPREFERENCE_SERVER_HPP
+#define CPPREFERENCE_SERVER_HPP
 
-#include <nlohmann/json.hpp>
+#include <cstddef>
+#include <cstdint>
+#include <memory>
 #include <mutex>
+#include <nlohmann/json.hpp>
+#include <string>
+
+#include "cache/cache.hpp"
 #include "client/client.hpp"
 #include "config/config.hpp"
-#include "cache/cache.hpp"
 #include "thread_pool/thread_pool.hpp"
 
-namespace cppreference::server {
+#include <httplib.h>
 
-class Server {
-public:
-    explicit Server(const config::Config& cfg);
-    void run();
+namespace cppreference::server
+{
+    class Server
+    {
+    public:
+        explicit Server(const config::Config& cfg);
+        ~Server();
+        void run();
+        void shutdown();
 
-private:
-    config::Config config_;
-    client::Client client_;
-    cache::Cache cache_;
-    thread_pool::ThreadPool pool_;
-    size_t max_output_chars_;
+    private:
+        nlohmann::json handle_request(const nlohmann::json& request);
+        void handle_http_request(const httplib::Request& req, httplib::Response& res);
+        nlohmann::json handle_tools_call_sync(const nlohmann::json& params);
+        void log_message(const char* message);
 
-    static void handle_initialize(nlohmann::json& response);
-    static void handle_tools_list(nlohmann::json& response);
-    void handle_tools_call(nlohmann::json& response, const nlohmann::json& params);
-    nlohmann::json handle_tools_call_sync(const nlohmann::json& params);
-    static void log_message(const char* message);
-    static std::mutex log_mutex_;
-};
+        config::Config config_;
+        client::Client client_;
+        cache::Cache cache_;
+        thread_pool::ThreadPool pool_;
+        std::size_t max_output_chars_ = 0;
 
+        std::unique_ptr<httplib::Server> http_server_;
+        std::mutex log_mutex_;
+    };
 } // namespace cppreference::server
 
-#endif // CPPREFERENCE_SERVER_SERVER_HPP
+#endif // CPPREFERENCE_SERVER_HPP

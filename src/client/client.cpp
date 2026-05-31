@@ -1,27 +1,29 @@
 #include "client.hpp"
-#include <nlohmann/json.hpp>
-#include <sstream>
 #include <iomanip>
-#include <thread>
+#include <nlohmann/json.hpp>
 #include <regex>
+#include <sstream>
+#include <thread>
 
 namespace cppreference::client {
 
 namespace {
 
-std::string url_encode(const std::string& value) {
+constexpr int http_status_ok = 200;
+constexpr int http_status_too_many_requests = 429;
+constexpr int http_status_service_unavailable = 503;
+
+// RFC 3986 percent‑encoding; safe for path and query strings.
+std::string url_encode(std::string_view value) {
     std::ostringstream escaped;
     escaped.fill('0');
     escaped << std::hex;
 
-    for (auto c : value) {
-        if (std::isalnum(static_cast<unsigned char>(c)) ||
-            c == '-' || c == '_' || c == '.' || c == '~') {
+    for (unsigned char c : value) {
+        if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
             escaped << c;
         } else {
-            escaped << std::uppercase;
-            escaped << '%' << std::setw(2) << static_cast<int>(static_cast<unsigned char>(c));
-            escaped << std::nouppercase;
+            escaped << std::uppercase << '%' << std::setw(2) << static_cast<int>(c) << std::nouppercase;
         }
     }
 
@@ -43,9 +45,12 @@ Client::Client(std::string base_url, std::chrono::seconds timeout, int max_retri
     http_->set_default_headers({{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}});
 }
 
-std::optional<std::string> Client::search(const std::string& query) {
+std::optional<std::string> Client::search(std::string_view query) {
+    // WARNING: This regex scrapes HTML. It may break if cppreference changes its search page layout.
+    // The official MediaWiki API search is broken on cppreference, so this is a necessary workaround.
     static const std::regex link_regex(R"delim(<a[^>]*href="(/cpp/[^"]+))delim");
 
+    // First attempt is try #0, then up to max_retries_ additional retries
     for (int attempt = 0; attempt <= max_retries_; ++attempt) {
         auto res = [this, &query]() {
             std::lock_guard<std::mutex> lock{http_mutex_};
@@ -60,7 +65,7 @@ std::optional<std::string> Client::search(const std::string& query) {
             return std::nullopt;
         }
 
-        if (res->status == 429 || res->status == 503) {
+        if (res->status == http_status_too_many_requests || res->status == http_status_service_unavailable) {
             if (attempt < max_retries_) {
                 std::this_thread::sleep_for(retry_delay_);
                 continue;
@@ -68,25 +73,35 @@ std::optional<std::string> Client::search(const std::string& query) {
             return std::nullopt;
         }
 
-        if (res->status != 200) {
+        if (res->status != http_status_ok) {
             return std::nullopt;
         }
 
         auto begin = std::sregex_iterator(res->body.begin(), res->body.end(), link_regex);
         auto end = std::sregex_iterator();
 
+        std::string preferred;
         for (auto it = begin; it != end; ++it) {
             std::string href = (*it)[1].str();
             if (href.size() > 1) {
-                return href.substr(1);
+                std::string title = href.substr(1);
+                if (!title.starts_with("cpp/header/") && !title.starts_with("cpp/experimental/")) {
+                    return title;
+                }
+                if (preferred.empty() && title.starts_with("cpp/")) {
+                    preferred = title;
+                }
             }
+        }
+        if (!preferred.empty()) {
+            return preferred;
         }
     }
 
     return std::nullopt;
 }
 
-std::optional<std::string> Client::get_page_content(const std::string& title) {
+std::optional<std::string> Client::get_page_content(std::string_view title) {
     for (int attempt = 0; attempt <= max_retries_; ++attempt) {
         auto res = [this, &title]() {
             std::lock_guard<std::mutex> lock{http_mutex_};
@@ -102,7 +117,7 @@ std::optional<std::string> Client::get_page_content(const std::string& title) {
             return std::nullopt;
         }
 
-        if (res->status == 429 || res->status == 503) {
+        if (res->status == http_status_too_many_requests || res->status == http_status_service_unavailable) {
             if (attempt < max_retries_) {
                 std::this_thread::sleep_for(retry_delay_);
                 continue;
@@ -110,7 +125,7 @@ std::optional<std::string> Client::get_page_content(const std::string& title) {
             return std::nullopt;
         }
 
-        if (res->status != 200) {
+        if (res->status != http_status_ok) {
             return std::nullopt;
         }
 
@@ -125,7 +140,16 @@ std::optional<std::string> Client::get_page_content(const std::string& title) {
                     }
                 }
             }
-        } catch (const std::exception&) {}
+        } catch (const std::exception&) {
+            // JSON parse error – treat as transient and retry
+            if (attempt < max_retries_) {
+                std::this_thread::sleep_for(retry_delay_);
+                continue;
+            }
+            return std::nullopt;
+        }
+
+        // No revisions found → page does not exist or has no content
         return std::nullopt;
     }
 

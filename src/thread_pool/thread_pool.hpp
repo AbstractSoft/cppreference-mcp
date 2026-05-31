@@ -1,22 +1,24 @@
-#ifndef CPPREFERENCE_THREAD_POOL_THREAD_POOL_HPP
-#define CPPREFERENCE_THREAD_POOL_THREAD_POOL_HPP
+#ifndef CPPREFERENCE_THREAD_POOL_HPP
+#define CPPREFERENCE_THREAD_POOL_HPP
 
+#include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <cstddef>
 #include <functional>
 #include <future>
-#include <thread>
-#include <vector>
-#include <queue>
 #include <mutex>
-#include <atomic>
-#include <condition_variable>
+#include <queue>
 #include <stdexcept>
+#include <thread>
+#include <type_traits>
+#include <vector>
 
 namespace cppreference::thread_pool {
 
 class ThreadPool {
 public:
-    explicit ThreadPool(size_t num_threads,
+    explicit ThreadPool(std::size_t num_threads,
                         std::chrono::seconds default_timeout = std::chrono::hours(1));
     ~ThreadPool();
 
@@ -25,34 +27,34 @@ public:
     ThreadPool(ThreadPool&&) = delete;
     ThreadPool& operator=(ThreadPool&&) = delete;
 
-    template<typename F, typename... Args>
+    template <typename F, typename... Args> // NOLINTNEXTLINE(readability-identifier-length)
     auto submit(F&& f, Args&&... args) -> std::future<std::invoke_result_t<F, Args...>>;
 
     void wait_all();
     void wait_all_with_timeout(std::chrono::seconds timeout);
-    [[nodiscard]] size_t active_tasks() const;
+    std::size_t active_tasks() const;
 
 private:
+    void worker_loop();
+
     std::vector<std::thread> workers_;
     std::queue<std::function<void()>> tasks_;
     std::mutex queue_mutex_;
     std::condition_variable cv_;
     std::condition_variable finished_cv_;
     std::atomic<bool> stop_{false};
-    std::atomic<size_t> active_tasks_ = 0;
+    std::atomic<std::size_t> active_tasks_{0};
     mutable std::mutex finished_mutex_;
     std::chrono::seconds default_timeout_;
-
-    void worker_loop();
 };
 
-template<typename F, typename... Args>
-auto ThreadPool::submit(F&& f, Args&&... args) -> std::future<std::invoke_result_t<F, Args...>> {
-    using return_type = std::invoke_result_t<F, Args...>;
+template <typename Func, typename... Args>
+auto ThreadPool::submit(Func&& func, Args&&... args) -> std::future<std::invoke_result_t<Func, Args...>> {
+    using return_type = std::invoke_result_t<Func, Args...>;
 
     auto task = std::make_shared<std::packaged_task<return_type()>>(
-        [f = std::forward<F>(f), ...args = std::forward<Args>(args)]() mutable {
-            return f(std::forward<Args>(args)...);
+        [func = std::forward<Func>(func), ...args = std::forward<Args>(args)]() mutable {
+            return func(std::forward<Args>(args)...);
         }
     );
 
@@ -72,4 +74,4 @@ auto ThreadPool::submit(F&& f, Args&&... args) -> std::future<std::invoke_result
 
 } // namespace cppreference::thread_pool
 
-#endif // CPPREFERENCE_THREAD_POOL_THREAD_POOL_HPP
+#endif // CPPREFERENCE_THREAD_POOL_HPP

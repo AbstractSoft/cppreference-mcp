@@ -3,12 +3,20 @@
 
 namespace cppreference::thread_pool {
 
-ThreadPool::ThreadPool(size_t num_threads,
-                       std::chrono::seconds default_timeout)
+namespace {
+
+constexpr std::size_t default_num_threads = 8;
+
+} // namespace
+
+ThreadPool::ThreadPool(std::size_t num_threads, std::chrono::seconds default_timeout)
     : default_timeout_{default_timeout}
 {
+    if (num_threads == 0) {
+        num_threads = default_num_threads;
+    }
     workers_.reserve(num_threads);
-    for (size_t i = 0; i < num_threads; ++i) {
+    for (std::size_t idx = 0; idx < num_threads; ++idx) {
         workers_.emplace_back([this] { worker_loop(); });
     }
 }
@@ -66,7 +74,8 @@ void ThreadPool::wait_all() {
 
 void ThreadPool::wait_all_with_timeout(std::chrono::seconds timeout) {
     std::unique_lock<std::mutex> lock{finished_mutex_};
-    bool completed = finished_cv_.wait_for(lock, timeout, [this] {
+    bool completed = false;
+    completed = finished_cv_.wait_for(lock, timeout, [this] {
         std::lock_guard<std::mutex> q_lock{queue_mutex_};
         return active_tasks_ == 0 && tasks_.empty();
     });
@@ -79,7 +88,7 @@ void ThreadPool::wait_all_with_timeout(std::chrono::seconds timeout) {
     }
 }
 
-size_t ThreadPool::active_tasks() const {
+std::size_t ThreadPool::active_tasks() const {
     return active_tasks_;
 }
 

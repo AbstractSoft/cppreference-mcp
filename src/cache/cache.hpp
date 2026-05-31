@@ -1,36 +1,45 @@
-#ifndef CPPREFERENCE_CACHE_CACHE_HPP
-#define CPPREFERENCE_CACHE_CACHE_HPP
+#ifndef CPPREFERENCE_CACHE_HPP
+#define CPPREFERENCE_CACHE_HPP
 
-#include <string>
-#include <optional>
+#include <atomic>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <atomic>
+#include <optional>
+#include <string>
+#include <string_view>
+
 #include "db/sqlite_db.hpp"
 
-namespace cppreference::cache {
+namespace cppreference::cache
+{
+    class Cache
+    {
+    public:
+        Cache(std::string_view db_path, int64_t ttl_seconds, std::size_t max_size_mb,
+              std::size_t evict_check_interval = 50);
+        ~Cache() = default;
+        Cache(const Cache&) = delete;
+        Cache& operator=(const Cache&) = delete;
+        Cache(Cache&&) = delete;
+        Cache& operator=(Cache&&) = delete;
 
-class Cache {
-public:
-    explicit Cache(const std::string& db_path, int64_t ttl_seconds, size_t max_size_mb);
+        std::optional<std::string> get(std::string_view key);
+        bool put(std::string_view key, std::string_view value);
+        bool remove(std::string_view key);
+        void evict_expired();
+        std::size_t size_bytes();
+        std::size_t row_count();
 
-    [[nodiscard]] std::optional<std::string> get(const std::string& key);
-    bool put(const std::string& key, const std::string& value);
-    bool remove(const std::string& key);
-    bool evict_expired();
-    [[nodiscard]] size_t size_bytes() const;
-    [[nodiscard]] size_t row_count() const;
-
-private:
-    std::string db_path_;
-    int64_t ttl_seconds_;
-    size_t max_size_mb_;
-    std::unique_ptr<db::SqliteDb> db_;
-    mutable std::mutex mutex_;
-    std::atomic<size_t> get_call_count_{0};
-};
-
+    private:
+        int64_t ttl_seconds_;
+        std::size_t max_size_mb_;
+        std::size_t evict_check_interval_;
+        std::unique_ptr<db::SqliteDb> db_;
+        mutable std::mutex mutex_;
+        std::atomic<int64_t> get_call_count_{0};
+    };
 } // namespace cppreference::cache
 
-#endif // CPPREFERENCE_CACHE_CACHE_HPP
+#endif // CPPREFERENCE_CACHE_HPP

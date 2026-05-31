@@ -73,14 +73,18 @@ add_executable(cppreference-mcp
         src/db/sqlite_db.cpp
         src/cache/cache.cpp
         src/thread_pool/thread_pool.cpp
+        src/parser/parser.cpp
 )
 
 target_compile_definitions(cppreference-mcp PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
 target_link_libraries(cppreference-mcp PRIVATE
         nlohmann_json::nlohmann_json
         httplib::httplib
-        SQLite3::SQLite3
+        ${SQLITE3_LIBRARIES}
 )
+if(NOT SQLITE3_LIBRARIES)
+    target_link_libraries(cppreference-mcp PRIVATE sqlite3)
+endif()
 
 target_include_directories(cppreference-mcp PRIVATE
         ${CMAKE_SOURCE_DIR}/src

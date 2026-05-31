@@ -23,7 +23,10 @@ src/
 │   ├── handle_initialize()   — protocol handshake
 │   ├── handle_tools_list()   — advertise cppreference/lookup tool
 │   ├── handle_tools_call()   — dispatch to thread pool with timeout
-│   └── handle_tools_call_sync() — search → cache lookup → fetch → truncate
+│   └── handle_tools_call_sync() — search → cache lookup → fetch → parse → truncate
+├── parser/                   — Wikitext → minimal markdown converter
+│   ├── convert()             — main entry point (public API)
+│   └── [anonymous namespace] — parse_template_args, find_closing_braces, strip_templates, process_template, process_template_body, resolve_wiki_link, resolve_wiki_links_in_text, normalize_whitespace
 ├── config/                   — JSON config file loader
 ├── cache/                    — TTL-based SQLite cache wrapper (thread-safe)
 │   ├── get()                 — mutex-locked, evict_expired every 50 calls
@@ -52,7 +55,49 @@ Namespaces match folder structure: `cppreference::client`, `cppreference::server
 - **Thread pool**: Worker threads process `handle_tools_call_sync` tasks with configurable timeout (5× client timeout).
 - **SQLite**: Opened with `SQLITE_OPEN_NOMUTEX` — all access must be synchronized by the caller (enforced via `Cache` mutex).
 
-## Key Design Decisions
+## Parser Design
+
+### Public API
+- `convert(std::string_view wikitext) → std::string` — single entry point, processes wikitext → markdown
+
+### Internal Functions (anonymous namespace)
+- `parse_template_args()` — splits `{{name|arg1|arg2|named=val}}` args by top-level `|`, respecting `{{ }}` nesting
+- `find_closing_braces()` — matches `}}` with depth tracking for nested `{{ }}`
+- `strip_templates()` — removes `{{ }}` markers, keeps first positional arg (e.g., `{{named req|Container}}` → `Container`)
+- `process_template()` — dispatches template body to markdown output (code blocks, inline code, noise)
+- `process_template_body()` — processes `{{ }}` templates in prose/wiki-link display text
+- `resolve_wiki_link()` — `[[target|display]]` → processed display text; `[[target]]` → leaf name
+- `resolve_wiki_links_in_text()` — resolves `[[ ]]` in headings, respecting `{{ }}` nesting
+- `normalize_whitespace()` — collapses multiple spaces/newlines, passes code fences verbatim
+
+### Template Handling
+- **Noise templates**: `par begin/end/inc`, `dsc begin/end/inc`, `ftm begin/end`, `cpp/navbar*`, `langlinks`, `todo`, `cpp/title` → dropped
+- **Inline code**: `{{tt|...}}`, `{{lc|...}}`, `{{c/core|...}}`, `{{c|...}}`, `{{lcf|...}}`, `{{ltt|...}}` → `` `...` ``
+- **Concepts**: `{{named req|...}}`, `{{lconcept|...}}` → plain text
+- **Math**: `{{math|...}}` → plain text (Unicode preserved)
+- **Declarations**: `{{dcl|...}}`, `{{ddcl|...}}` → fenced `` ```cpp `` blocks; `{{dcl header|...}}` → `// #include <...>`
+- **Examples**: `{{example|...}}`, `{{cpp/example|...}}` → code block + output text
+- **Source code**: `{{source|...}}` → fenced code block with language
+- **Revision notes**: `{{rev inl|...}}`, `{{rrev|...}}` → last positional arg
+- **Mark templates**: `{{mark|since=...}}`, `{{mark|until=...}}`, `{{mark|rev=...}}` → `*(since ...)*`
+- **Constexpr**: `{{cpp/is_constexpr|since=c++11}}` → `(constexpr since c++11)`
+- **Unknown templates**: silently dropped
+
+### Stateful Block Processing
+- **dsc blocks** (`{{dsc begin}}` → `{{dsc end}}`): Collect rows into `dsc_rows`, render as Markdown table on `{{dsc end}}`
+  - `{{dsc hitem|...|...}}` → header row + separator marker
+  - `{{dsc class|...|...}}`, `{{dsc function|...|...}}`, etc. → data rows
+  - `{{dsc *}}` fallback → generic item row
+- **par blocks** (`{{par begin}}` → `{{par end}}`): Collect items into `par_items`, render as bullet list on `{{par end}}`
+  - `{{par|name|desc}}` → `- \`name\` — desc`
+
+### Wiki Link Resolution
+- Main loop processes `[[ ]]` before `{{ }}` to handle `[[link|{{c/core|bool}}]]` correctly
+- Display text with templates is processed via `process_template_body()`
+- Headings resolve wiki links via `resolve_wiki_links_in_text()` after template processing
+- No display text → uses path leaf (`cpp/container/vector` → `vector`)
+
+### Key Design Decisions
 
 ### Search Strategy
 - Uses HTML search page (`/index.php?title=Special:Search`) instead of broken MediaWiki JSON search API (which fails on `::` queries).

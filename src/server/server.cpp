@@ -1,17 +1,37 @@
 #include "server.hpp"
-#include <nlohmann/json.hpp>
+
+#include <algorithm>
+#include <csignal>
 #include <format>
 #include <iostream>
+#include <nlohmann/json.hpp>
+
+#include "parser/parser.hpp"
 
 namespace cppreference::server
 {
-    std::mutex Server::log_mutex_;
-
-    void Server::log_message(const char* message)
+    namespace
     {
-        std::lock_guard<std::mutex> lock{log_mutex_};
-        std::cerr << message << '\n';
-    }
+        constexpr int http_status_ok = 200;
+        constexpr int http_status_bad_request = 400;
+        constexpr int http_status_method_not_allowed = 405;
+        constexpr int http_status_internal_error = 500;
+
+        std::string json_to_string(const nlohmann::json& j)
+        {
+            return j.dump();
+        }
+
+        httplib::Server* g_http_server = nullptr;
+
+        void shutdown_handler(int)
+        {
+            if (g_http_server)
+            {
+                g_http_server->stop();
+            }
+        }
+    } // namespace
 
     Server::Server(const config::Config& cfg)
         : config_{cfg}
@@ -29,11 +49,39 @@ namespace cppreference::server
           , pool_{cfg.get_server_config().thread_pool_size}
           , max_output_chars_{cfg.get_content_config().max_output_chars}
     {
-        log_message(
-            (std::string{"Client timeout: "} + std::to_string(cfg.get_client_config().timeout_seconds) + "s").c_str());
-        log_message(
-            (std::string{"Cache enabled: "} + std::string{cfg.get_cache_config().enabled ? "yes" : "no"}).c_str());
-        log_message((std::string{"Max output chars: "} + std::to_string(max_output_chars_)).c_str());
+        unsigned int http_port = cfg.get_server_config().http_port;
+        if (http_port > 0)
+        {
+            http_server_ = std::make_unique<httplib::Server>();
+
+            http_server_->set_error_handler([](const httplib::Request&, httplib::Response& res)
+            {
+                res.set_content("Internal Server Error", "text/plain");
+                res.status = http_status_internal_error;
+            });
+
+            http_server_->Post("/", [this](const httplib::Request& req, httplib::Response& res)
+            {
+                handle_http_request(req, res);
+            });
+
+            g_http_server = http_server_.get();
+        }
+    }
+
+    Server::~Server()
+    {
+        shutdown();
+    }
+
+    void Server::shutdown()
+    {
+        if (http_server_)
+        {
+            http_server_->stop();
+            http_server_.reset();
+            g_http_server = nullptr;
+        }
     }
 
     void Server::run()
@@ -43,135 +91,153 @@ namespace cppreference::server
 
         log_message("Starting cppreference MCP server");
 
-        if (config_.get_cache_config().enabled)
+        unsigned int http_port = config_.get_server_config().http_port;
+        if (http_port > 0)
         {
+            log_message((std::string{"HTTP server starting on port "} + std::to_string(http_port)).c_str());
             log_message((std::string{"Cache initialized: "} + config_.get_cache_config().path).c_str());
-        }
 
-        std::string line;
-        while (std::getline(std::cin, line))
-        {
-            if (line.empty()) continue;
+            signal(SIGINT, shutdown_handler);
+            signal(SIGTERM, shutdown_handler);
 
-            try
+            bool listen_ok = http_server_->listen("", http_port);
+            if (!listen_ok)
             {
-                auto request = nlohmann::json::parse(line);
+                log_message("Failed to start HTTP server");
+                g_http_server = nullptr;
+                return;
+            }
 
-                if (!request.is_object()) continue;
-                if (!request.contains("jsonrpc") || request["jsonrpc"] != "2.0") continue;
+            g_http_server = nullptr;
+        }
+        else
+        {
+            log_message(
+                (std::string{"Client timeout: "} + std::to_string(config_.get_client_config().timeout_seconds) + "s").
+                c_str());
+            log_message(
+                (std::string{"Cache enabled: "} + std::string{
+                    config_.get_cache_config().enabled ? "yes" : "no"
+                }).c_str());
+            log_message((std::string{"Max output chars: "} + std::to_string(max_output_chars_)).c_str());
+            log_message((std::string{"Cache initialized: "} + config_.get_cache_config().path).c_str());
 
-                auto id = request.contains("id") ? request["id"] : nlohmann::json(nullptr);
-                std::string method;
-
-                if (request.contains("method") && request["method"].is_string())
-                {
-                    method = request["method"].get<std::string>();
-                }
-                else
+            // stdio mode
+            std::string line;
+            while (std::getline(std::cin, line))
+            {
+                if (line.empty())
                 {
                     continue;
                 }
 
-                auto params = request.value("params", nlohmann::json::object());
-
-                bool is_notification = !request.contains("id");
-                if (is_notification) continue;
-
-                nlohmann::json response{};
-                response["jsonrpc"] = "2.0";
-                response["id"] = id;
-
-                if (method == "initialize")
-                    handle_initialize(response);
-                else if (method == "tools/list")
-                    handle_tools_list(response);
-                else if (method == "tools/call")
-                    handle_tools_call(response, params);
-                else
-                    response["error"] = {{"code", -32601}, {"message", std::format("Method not found: {}", method)}};
-
-                std::cout << response.dump() << '\n';
-                std::cout.flush();
-            }
-            catch (const nlohmann::json::parse_error&)
-            {
-                // malformed line — skip it
-            }
-            catch (const std::exception& e)
-            {
-                nlohmann::json error{
-                    {"jsonrpc", "2.0"},
-                    {"id", nullptr},
-                    {"error", {{"code", -32603}, {"message", e.what()}}}
-                };
-                std::cout << error.dump() << '\n';
-                std::cout.flush();
+                try
+                {
+                    auto request = nlohmann::json::parse(line);
+                    nlohmann::json response = handle_request(request);
+                    std::cout << json_to_string(response) << '\n';
+                    std::cout.flush();
+                }
+                catch (const nlohmann::json::parse_error& /*e*/)
+                {
+                    // malformed line — skip it
+                }
+                catch (const std::exception& e)
+                {
+                    nlohmann::json error{
+                        {"jsonrpc", "2.0"},
+                        {"id", nullptr},
+                        {"error", {{"code", -32603}, {"message", e.what()}}}
+                    };
+                    std::cout << json_to_string(error) << '\n';
+                    std::cout.flush();
+                }
             }
         }
     }
 
-    void Server::handle_initialize(nlohmann::json& response)
+    nlohmann::json Server::handle_request(const nlohmann::json& request)
     {
-        response["result"] = {
-            {"protocolVersion", "2024-11-05"},
-            {
-                "capabilities", {
-                    {"tools", {{"listChanged", false}}},
-                    {"resources", nlohmann::json::object()}
-                }
-            },
-            {
-                "serverInfo", {
-                    {"name", "cppreference-mcp"},
-                    {"version", "1.0.0"}
-                }
-            }
-        };
-    }
+        nlohmann::json response{};
+        response["jsonrpc"] = "2.0";
 
-    void Server::handle_tools_list(nlohmann::json& response)
-    {
-        response["result"] = {
-            {
-                "tools", {
-                    {
-                        {"name", "cppreference/lookup"},
-                        {"description", "Search cppreference.com for C++ documentation"},
+        if (!request.is_object())
+        {
+            response["error"] = {{"code", -32700}, {"message", "Invalid request"}};
+            response["id"] = nullptr;
+            return response;
+        }
+
+        if (!request.contains("jsonrpc") || request["jsonrpc"] != "2.0")
+        {
+            response["error"] = {{"code", -32600}, {"message", "Invalid JSON-RPC version"}};
+            response["id"] = request.contains("id") ? request["id"] : nullptr;
+            return response;
+        }
+
+        auto request_id = request.contains("id") ? request["id"] : nlohmann::json(nullptr);
+        response["id"] = request_id;
+
+        if (!request.contains("method") || !request["method"].is_string())
+        {
+            response["error"] = {{"code", -32601}, {"message", "Method not found"}};
+            return response;
+        }
+
+        std::string method = request["method"].get<std::string>();
+        auto params = request.value("params", nlohmann::json::object());
+
+        if (method == "initialize")
+        {
+            response["result"] = {
+                {"protocolVersion", "2024-11-05"},
+                {
+                    "capabilities", {
+                        {"tools", {{"listChanged", false}}},
+                        {"resources", nlohmann::json::object()}
+                    }
+                },
+                {
+                    "serverInfo", {
+                        {"name", "cppreference-mcp"},
+                        {"version", "1.0.0"}
+                    }
+                }
+            };
+        }
+        else if (method == "tools/list")
+        {
+            response["result"] = {
+                {
+                    "tools", {
                         {
-                            "inputSchema", {
-                                {"type", "object"},
-                                {
-                                    "properties", {
-                                        {"query", {{"type", "string"}, {"description", "C++ symbol or keyword"}}}
-                                    }
-                                },
-                                {"required", {"query"}}
+                            {"name", "cppreference/lookup"},
+                            {"description", "Search cppreference.com for C++ documentation"},
+                            {
+                                "inputSchema", {
+                                    {"type", "object"},
+                                    {
+                                        "properties", {
+                                            {"query", {{"type", "string"}, {"description", "C++ symbol or keyword"}}}
+                                        }
+                                    },
+                                    {"required", {"query"}}
+                                }
                             }
                         }
                     }
                 }
+            };
+        }
+        else if (method == "tools/call")
+        {
+            auto tool_name = params.value("name", "");
+            if (tool_name != "cppreference/lookup")
+            {
+                response["error"] = {{"code", -32601}, {"message", std::format("Tool not found: {}", tool_name)}};
+                return response;
             }
-        };
-    }
 
-    void Server::handle_tools_call(nlohmann::json& response, const nlohmann::json& params)
-    {
-        auto tool_name = params.value("name", "");
-        if (tool_name != "cppreference/lookup")
-        {
-            response["error"] = {{"code", -32601}, {"message", std::format("Tool not found: {}", tool_name)}};
-            return;
-        }
-
-        auto tool_params = params.value("arguments", nlohmann::json::object());
-        std::string query{tool_params.value("query", "")};
-
-        if (query.empty())
-        {
-            response["error"] = {{"code", -32602}, {"message", "Missing 'query' parameter"}};
-        }
-        else
-        {
             try
             {
                 auto future = pool_.submit([this, params]() -> nlohmann::json
@@ -196,17 +262,81 @@ namespace cppreference::server
                 };
             }
         }
+        else
+        {
+            response["error"] = {{"code", -32601}, {"message", std::format("Method not found: {}", method)}};
+        }
+
+        return response;
+    }
+
+    void Server::handle_http_request(const httplib::Request& req, httplib::Response& res)
+    {
+        if (req.method != "POST")
+        {
+            res.set_content("Method Not Allowed", "text/plain");
+            res.status = http_status_method_not_allowed;
+            return;
+        }
+
+        std::string content_type;
+        if (req.has_header("Content-Type"))
+        {
+            content_type = req.get_header_value("Content-Type");
+        }
+
+        if (content_type.find("application/json") == std::string::npos)
+        {
+            res.set_content("Content-Type must be application/json", "text/plain");
+            res.status = http_status_bad_request;
+            return;
+        }
+
+        try
+        {
+            nlohmann::json request = nlohmann::json::parse(req.body);
+            nlohmann::json response = handle_request(request);
+
+            res.set_content(json_to_string(response), "application/json");
+            res.status = http_status_ok;
+        }
+        catch (const nlohmann::json::parse_error& e)
+        {
+            nlohmann::json error{
+                {"jsonrpc", "2.0"},
+                {"id", nullptr},
+                {"error", {{"code", -32700}, {"message", e.what()}}}
+            };
+            res.set_content(json_to_string(error), "application/json");
+            res.status = http_status_bad_request;
+        }
+        catch (const std::exception& e)
+        {
+            nlohmann::json error{
+                {"jsonrpc", "2.0"},
+                {"id", nullptr},
+                {"error", {{"code", -32603}, {"message", e.what()}}}
+            };
+            res.set_content(json_to_string(error), "application/json");
+            res.status = http_status_internal_error;
+        }
     }
 
     nlohmann::json Server::handle_tools_call_sync(const nlohmann::json& params)
     {
-        nlohmann::json response{};
         auto tool_params = params.value("arguments", nlohmann::json::object());
         std::string query{tool_params.value("query", "")};
 
+        if (query.empty())
+        {
+            return nlohmann::json{
+                {"content", {{{"type", "text"}, {"text", "Missing 'query' parameter"}}}}
+            };
+        }
+
         auto title = client_.search(query).value_or(query);
 
-        std::string cached_content;
+        std::string content;
         bool has_cache = false;
 
         if (config_.get_cache_config().enabled)
@@ -214,7 +344,7 @@ namespace cppreference::server
             auto cached = cache_.get("page:" + title);
             if (cached.has_value())
             {
-                cached_content = std::move(cached.value());
+                content = std::move(cached.value());
                 has_cache = true;
                 log_message((std::string{"Cache hit for: "} + title).c_str());
             }
@@ -224,33 +354,40 @@ namespace cppreference::server
             }
         }
 
-        std::string content;
         if (!has_cache)
         {
-            content = client_.get_page_content(title).value_or("No documentation found.");
+            std::string raw_wikitext = client_.get_page_content(title).value_or("No documentation found.");
 
-            if (config_.get_cache_config().enabled && !content.empty() && content != "No documentation found.")
+            if (config_.get_cache_config().enabled && !raw_wikitext.empty() && raw_wikitext !=
+                "No documentation found.")
             {
+                content = parser::convert(raw_wikitext);
                 cache_.put("page:" + title, content);
             }
-        }
-        else
-        {
-            content = std::move(cached_content);
+            else
+            {
+                content = std::move(raw_wikitext);
+            }
         }
 
-        std::string truncated;
+        if (content.empty())
+        {
+            content = "No documentation found.";
+        }
+
         if (content.size() > max_output_chars_)
         {
-            truncated = content.substr(0, max_output_chars_) + "... [truncated]";
-        }
-        else
-        {
-            truncated = content;
+            content = content.substr(0, max_output_chars_) + "... [truncated]";
         }
 
         return nlohmann::json{
-            {"content", {{{"type", "text"}, {"text", truncated}}}}
+            {"content", {{{"type", "text"}, {"text", content}}}}
         };
+    }
+
+    void Server::log_message(const char* message)
+    {
+        std::lock_guard<std::mutex> lock{log_mutex_};
+        std::cerr << message << '\n';
     }
 } // namespace cppreference::server
