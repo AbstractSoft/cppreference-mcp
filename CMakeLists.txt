@@ -39,6 +39,7 @@ file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
 # Homebrew paths for macOS ARM64
 list(PREPEND CMAKE_PREFIX_PATH /opt/homebrew)
@@ -61,10 +62,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(cpp-httplib)
 
-# Shared thread-pool library (sibling project)
+# Fetch thread_pool from GitHub
 FetchContent_Declare(
-        thread_pool
-        SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../thread-pool"
+    thread_pool
+    GIT_REPOSITORY https://github.com/AbstractSoft/thread_pool.git
+    GIT_TAG main
 )
 FetchContent_MakeAvailable(thread_pool)
 
@@ -104,6 +106,12 @@ add_custom_command(TARGET cppreference-mcp POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/config.json"
         "$<TARGET_FILE_DIR:cppreference-mcp>/config.json"
+)
+
+# Clean up thread_pool artifacts leaked into out/ by its own POST_BUILD
+add_custom_command(TARGET cppreference-mcp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_FILE_DIR:cppreference-mcp>/thread_pool.hpp"
+        COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_FILE_DIR:cppreference-mcp>/libthread_pool.a"
 )
 
 # C++23 features

@@ -361,7 +361,7 @@ namespace cppreference::server
             if (config_.get_cache_config().enabled && !raw_wikitext.empty() && raw_wikitext !=
                 "No documentation found.")
             {
-                content = parser::convert(raw_wikitext);
+                content = parser::convert(raw_wikitext, config_.get_client_config().base_url);
                 cache_.put("page:" + title, content);
             }
             else

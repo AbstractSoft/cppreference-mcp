@@ -6,7 +6,7 @@
 
 namespace cppreference::parser {
 
-std::string convert(std::string_view wikitext);
+std::string convert(std::string_view wikitext, std::string_view base_url = "");
 
 } // namespace cppreference::parser
 

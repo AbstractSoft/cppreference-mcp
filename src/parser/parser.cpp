@@ -43,7 +43,7 @@ std::vector<TemplateArg> parse_template_args(std::string_view args) {
             else if (arg_sv[idx] == '=' && brace_depth == 0) { eq_pos = idx; break; }
         }
 
-        if (eq_pos != std::string::npos) {
+        if (eq_pos != std::string::npos && !arg_sv.substr(0, eq_pos).empty()) {
             result.push_back({ std::string(arg_sv.substr(0, eq_pos)),
                                std::string(arg_sv.substr(eq_pos + 1)) });
         } else {
@@ -90,6 +90,9 @@ std::string strip_templates(std::string_view text) {
             std::size_t pipe = inner.find('|');
             if (pipe != std::string::npos) {
                 result += strip_templates(inner.substr(pipe + 1));
+            } else {
+                // No pipe: include inner content directly (handles {{=}} → "=")
+                result += inner;
             }
             pos += end;
         } else {
@@ -100,28 +103,35 @@ std::string strip_templates(std::string_view text) {
 }
 
 // Forward declarations
-std::string process_template(std::string_view body, bool& in_dsc, std::vector<std::string>& dsc_rows, bool& in_par, std::vector<std::string>& par_items);
-std::string process_template_body(std::string_view text, bool& in_dsc, std::vector<std::string>& dsc_rows, bool& in_par, std::vector<std::string>& par_items);
-std::string resolve_wiki_link(std::string_view link);
-std::string resolve_wiki_links_in_text(std::string_view text);
+std::string process_template(std::string_view body, bool& in_dsc, std::vector<std::string>& dsc_rows, bool& in_par, std::vector<std::string>& par_items, bool& in_dr, std::vector<std::string>& dr_rows, std::string& dcl_code, std::string_view base_url);
+std::string process_template_body(std::string_view text, bool& in_dsc, std::vector<std::string>& dsc_rows, bool& in_par, std::vector<std::string>& par_items, bool& in_dr, std::vector<std::string>& dr_rows, std::string& dcl_code, std::string_view base_url);
+std::string resolve_wiki_link(std::string_view link, std::string_view base_url);
+std::string resolve_wiki_links_in_text(std::string_view text, std::string_view base_url);
 
-// Resolve a wiki link body to display text.
-std::string resolve_wiki_link(std::string_view link) {
+// Resolve a wiki link body to markdown link with URL.
+std::string resolve_wiki_link(std::string_view link, std::string_view base_url) {
     std::size_t pipe = link.find('|');
     if (pipe != std::string::npos) {
         std::string display = std::string(link.substr(pipe + 1));
         bool local_dsc = false;
         bool local_par = false;
+        bool local_dr = false;
         std::vector<std::string> local_dsc_rows;
         std::vector<std::string> local_par_items;
-        return process_template_body(display, local_dsc, local_dsc_rows, local_par, local_par_items);
+        std::vector<std::string> local_dr_rows;
+        std::string local_dcl_code;
+        std::string processed = process_template_body(display, local_dsc, local_dsc_rows, local_par, local_par_items, local_dr, local_dr_rows, local_dcl_code, base_url);
+        std::string path = std::string(link.substr(0, pipe));
+        return "[" + processed + "](" + std::string(base_url) + "/" + path + ")";
     }
-    std::size_t slash = link.rfind('/');
-    return slash != std::string::npos ? std::string(link.substr(slash + 1)) : std::string(link);
+    std::string path_str{static_cast<std::string>(link)};
+    std::size_t slash = path_str.rfind('/');
+    std::string leaf = slash != std::string::npos ? path_str.substr(slash + 1) : path_str;
+    return "[" + leaf + "](" + std::string(base_url) + "/" + path_str + ")";
 }
 
 // Process inline templates in prose text
-std::string process_template_body(std::string_view text, bool& in_dsc, std::vector<std::string>& dsc_rows, bool& in_par, std::vector<std::string>& par_items) {
+std::string process_template_body(std::string_view text, bool& in_dsc, std::vector<std::string>& dsc_rows, bool& in_par, std::vector<std::string>& par_items, bool& in_dr, std::vector<std::string>& dr_rows, std::string& dcl_code, std::string_view base_url) {
     std::string result;
     result.reserve(text.size());
     std::size_t pos = 0;
@@ -143,7 +153,7 @@ std::string process_template_body(std::string_view text, bool& in_dsc, std::vect
         std::size_t template_end = find_closing_braces(remaining);
         std::string_view body = remaining.substr(2, template_end - 4);
 
-        result += process_template(body, in_dsc, dsc_rows, in_par, par_items);
+        result += process_template(body, in_dsc, dsc_rows, in_par, par_items, in_dr, dr_rows, dcl_code, base_url);
         pos = next + template_end;
     }
 
@@ -151,7 +161,7 @@ std::string process_template_body(std::string_view text, bool& in_dsc, std::vect
 }
 
 // Resolve wiki links in text
-std::string resolve_wiki_links_in_text(std::string_view text) {
+std::string resolve_wiki_links_in_text(std::string_view text, std::string_view base_url) {
     std::string result;
     result.reserve(text.size());
     std::size_t pos = 0;
@@ -166,8 +176,6 @@ std::string resolve_wiki_links_in_text(std::string_view text) {
             result += text.substr(pos);
             break;
         }
-
-        result += text.substr(pos, next - pos);
 
         std::size_t close_pos = next + 2;
         std::size_t brace_depth = 0;
@@ -186,7 +194,7 @@ std::string resolve_wiki_links_in_text(std::string_view text) {
         }
 
         std::string link_str = std::string(text.substr(next + 2, close_pos - (next + 2)));
-        result += resolve_wiki_link(link_str);
+        result += resolve_wiki_link(link_str, base_url);
         pos = close_pos + 2;
     }
 
@@ -194,7 +202,7 @@ std::string resolve_wiki_links_in_text(std::string_view text) {
 }
 
 // Process a single template and return its markdown representation.
-std::string process_template(std::string_view body, bool& in_dsc, std::vector<std::string>& dsc_rows, bool& in_par, std::vector<std::string>& par_items) {
+std::string process_template(std::string_view body, bool& in_dsc, std::vector<std::string>& dsc_rows, bool& in_par, std::vector<std::string>& par_items, bool& in_dr, std::vector<std::string>& dr_rows, std::string& dcl_code, std::string_view base_url) {
     // Find template name: up to first top-level |
     std::size_t name_end = 0;
     std::size_t depth = 0;
@@ -212,13 +220,16 @@ std::string process_template(std::string_view body, bool& in_dsc, std::vector<st
 
     std::string_view targs = name_end < body.size() ? body.substr(name_end + 1) : std::string_view{};
 
-    // Noise: drop entirely
-    if (tname == "par begin"   || tname == "par end"   || tname == "par inc"  ||
-        tname == "dsc begin"   || tname == "dsc end"   || tname == "dsc inc"  ||
-        tname == "ftm begin"   || tname == "ftm end"   || tname == "ftm"      ||
-        tname == "dr list begin" || tname == "dr list item" || tname == "dr list end" ||
-        tname == "langlinks"   || tname == "todo"      ||
-        tname == "cpp/title"   ||
+    // {{=}} is the MediaWiki template for a literal equals sign (e.g. operator{{=}})
+    if (tname == "=") {
+        return "=";
+    }
+
+    // Noise: drop entirely (but NOT par/dsc begin/end — those set state flags)
+    if (tname == "par inc"  ||
+        tname == "ftm begin" || tname == "ftm end" || tname == "ftm"      ||
+        tname == "langlinks" || tname == "todo"      ||
+        tname == "cpp/title" ||
         (tname.size() > 4 && tname.substr(0, 4) == "cpp/" && tname.find("navbar") != std::string::npos)) {
         return "";
     }
@@ -258,8 +269,8 @@ std::string process_template(std::string_view body, bool& in_dsc, std::vector<st
             auto args = parse_template_args(targs);
             std::string name, desc;
             for (const auto& arg : args) {
-                if (arg.name == "1") name = strip_templates(arg.value);
-                if (arg.name == "2") desc = strip_templates(arg.value);
+                if (arg.name == "0") name = strip_templates(arg.value);
+                if (arg.name == "1") desc = strip_templates(arg.value);
             }
             dsc_rows.push_back("| " + name + " | " + desc + " |");
             dsc_rows.push_back("|---|------|");
@@ -271,10 +282,41 @@ std::string process_template(std::string_view body, bool& in_dsc, std::vector<st
             auto args = parse_template_args(targs);
             std::string name, desc;
             for (const auto& arg : args) {
-                if (arg.name == "1") name = strip_templates(arg.value);
-                if (arg.name == "2") desc = strip_templates(arg.value);
+                if (arg.name == "0") name = strip_templates(arg.value);
+                if (arg.name == "1") desc = strip_templates(arg.value);
             }
             dsc_rows.push_back("| " + name + " | " + desc + " |");
+            return "";
+        }
+        if (tname == "dsc h2") {
+            auto args = parse_template_args(targs);
+            std::string header;
+            for (const auto& arg : args) {
+                if (arg.name == "0") {
+                    header = strip_templates(arg.value);
+                    break;
+                }
+            }
+            if (!header.empty()) {
+                return "\n**" + header + "**\n";
+            }
+            return "";
+        }
+        if (tname == "dsc inc") {
+            auto args = parse_template_args(targs);
+            std::string path, display;
+            for (const auto& arg : args) {
+                if (arg.name == "0") path = arg.value;
+                if (arg.name == "1") display = strip_templates(arg.value);
+            }
+            if (display.empty() && !path.empty()) {
+                std::size_t slash = path.rfind('/');
+                display = slash != std::string::npos ? path.substr(slash + 1) : path;
+            }
+            if (!display.empty()) {
+                std::string link = resolve_wiki_link(path, base_url);
+                dsc_rows.push_back("| " + link + " | |");
+            }
             return "";
         }
         if (tname.find("dsc") == 0) {
@@ -282,12 +324,51 @@ std::string process_template(std::string_view body, bool& in_dsc, std::vector<st
                 return "";
             }
             auto args = parse_template_args(targs);
-            if (!args.empty()) {
-                std::string content = strip_templates(args[0].value);
-                dsc_rows.push_back("| | " + content + " |");
+            std::string col1, col2;
+            for (const auto& arg : args) {
+                if (arg.name == "0") col1 = strip_templates(arg.value);
+                if (arg.name == "1") col2 = strip_templates(arg.value);
+            }
+            if (!col1.empty() && !col2.empty()) {
+                dsc_rows.push_back("| " + col1 + " | " + col2 + " |");
+            } else if (!col1.empty()) {
+                dsc_rows.push_back("| | " + col1 + " |");
+            } else if (!col2.empty()) {
+                dsc_rows.push_back("| " + col2 + " |");
             }
             return "";
         }
+    }
+
+    // dr list (defect reports) block handling
+    if (tname == "dr list begin") {
+        in_dr = true;
+        dr_rows.clear();
+        return "";
+    }
+    if (tname == "dr list end") {
+        in_dr = false;
+        if (dr_rows.empty()) {
+            return "";
+        }
+        std::string table = "\n| DR | Applied to | Behavior as published | Correct behavior |\n|---|---|---|---|\n";
+        for (const auto& row : dr_rows) {
+            table += row + "\n";
+        }
+        dr_rows.clear();
+        return table + "\n";
+    }
+    if (in_dr && tname == "dr list item") {
+        auto args = parse_template_args(targs);
+        std::string dr_num, std_ver, before, after;
+        for (const auto& arg : args) {
+            if (arg.name == "dr")       dr_num   = strip_templates(arg.value);
+            if (arg.name == "std")      std_ver  = strip_templates(arg.value);
+            if (arg.name == "before")   before   = process_template_body(strip_templates(arg.value), in_dsc, dsc_rows, in_par, par_items, in_dr, dr_rows, dcl_code, base_url);
+            if (arg.name == "after")    after    = process_template_body(strip_templates(arg.value), in_dsc, dsc_rows, in_par, par_items, in_dr, dr_rows, dcl_code, base_url);
+        }
+        dr_rows.push_back("| " + dr_num + " | " + std_ver + " | " + before + " | " + after + " |");
+        return "";
     }
 
     // par block handling
@@ -312,8 +393,8 @@ std::string process_template(std::string_view body, bool& in_dsc, std::vector<st
         auto args = parse_template_args(targs);
         std::string name, desc;
         for (const auto& arg : args) {
-            if (arg.name == "1") name = "`" + strip_templates(arg.value) + "`";
-            if (arg.name == "2") desc = strip_templates(arg.value);
+            if (arg.name == "0") name = "`" + strip_templates(arg.value) + "`";
+            if (arg.name == "1") desc = strip_templates(arg.value);
         }
         if (!name.empty() && !desc.empty()) {
             par_items.push_back(name + " \u2014 " + desc);
@@ -382,18 +463,27 @@ std::string process_template(std::string_view body, bool& in_dsc, std::vector<st
     }
 
     // Declaration blocks
-    if (tname == "dcl begin" || tname == "dcl end") {
+    if (tname == "dcl begin") {
+        dcl_code.clear();
         return "";
+    }
+    if (tname == "dcl end") {
+        if (dcl_code.empty()) {
+            return "";
+        }
+        std::string output = dcl_code;
+        dcl_code.clear();
+        return output;
     }
     if (tname == "dcl header") {
         std::string header = strip_templates(targs);
         return "// #include <" + header + ">\n";
     }
-    if (tname == "dcl" || tname == "dcl rev" || tname == "ddcl") {
+    if (tname == "ddcl") {
         auto args = parse_template_args(targs);
         std::string code;
         for (const auto& arg : args) {
-            if (arg.name == "1") {
+            if (arg.name == "1" || arg.name == "code") {
                 code = arg.value;
                 break;
             }
@@ -409,16 +499,41 @@ std::string process_template(std::string_view body, bool& in_dsc, std::vector<st
         }
         return "```cpp\n" + code + "\n```\n";
     }
+    if (tname == "dcl" || tname == "dcl rev") {
+        auto args = parse_template_args(targs);
+        std::string code;
+        for (const auto& arg : args) {
+            if (arg.name == "1" || arg.name == "2" || arg.name == "code") {
+                code = arg.value;
+                break;
+            }
+        }
+        if (code.empty()) {
+            return "";
+        }
+        while (!code.empty() && code.front() == '\n') {
+            code.erase(code.begin());
+        }
+        while (!code.empty() && code.back() == '\n') {
+            code.pop_back();
+        }
+        dcl_code += "```cpp\n" + code + "\n```\n";
+        return "";
+    }
 
     // Example
-    if (tname == "example" || tname == "cpp/example") {
+      if (tname == "example" || tname == "cpp/example") {
         auto args = parse_template_args(targs);
-        std::string code, output;
+        std::string display, code, output;
         for (const auto& arg : args) {
-            if (arg.name == "code")   code   = arg.value;
-            if (arg.name == "output") output = arg.value;
+            if (arg.name == "0")        display  = process_template_body(strip_templates(arg.value), in_dsc, dsc_rows, in_par, par_items, in_dr, dr_rows, dcl_code, base_url);
+            if (arg.name == "code")     code     = arg.value;
+            if (arg.name == "output")   output   = arg.value;
         }
         std::string result;
+        if (!display.empty()) {
+            result += display + "\n";
+        }
         if (!code.empty()) {
             while (!code.empty() && code.front() == '\n') {
                 code.erase(code.begin());
@@ -522,11 +637,14 @@ std::string normalize_whitespace(std::string_view text) {
 
 } // namespace
 
-std::string convert(std::string_view wikitext) {
+std::string convert(std::string_view wikitext, std::string_view base_url) {
     bool in_dsc = false;
     bool in_par = false;
+    bool in_dr = false;
     std::vector<std::string> dsc_rows;
     std::vector<std::string> par_items;
+    std::vector<std::string> dr_rows;
+    std::string dcl_code;
 
     std::string result;
     result.reserve(wikitext.size());
@@ -552,6 +670,8 @@ std::string convert(std::string_view wikitext) {
         if (next_wiki     != std::string::npos) next = std::min(next, next_wiki);
         if (next_heading  != std::string::npos) next = std::min(next, next_heading);
         if (next_ref      != std::string::npos) next = std::min(next, next_ref);
+
+ 
 
         // Emit prose between markers
         if (next > pos) {
@@ -616,7 +736,7 @@ std::string convert(std::string_view wikitext) {
                 }
             }
             std::string link_str = std::string(wikitext.substr(next_wiki + 2, close_pos - (next_wiki + 2)));
-            result += resolve_wiki_link(link_str);
+            result += resolve_wiki_link(link_str, base_url);
             pos = close_pos + 2;
             continue;
         }
@@ -626,7 +746,7 @@ std::string convert(std::string_view wikitext) {
             std::string_view remaining = wikitext.substr(next_template);
             std::size_t template_end = find_closing_braces(remaining);
             std::string_view body = remaining.substr(2, template_end - 4);
-            std::string processed = process_template(body, in_dsc, dsc_rows, in_par, par_items);
+            std::string processed = process_template(body, in_dsc, dsc_rows, in_par, par_items, in_dr, dr_rows, dcl_code, base_url);
             result += processed;
             pos = next_template + template_end;
             continue;
@@ -654,8 +774,15 @@ std::string convert(std::string_view wikitext) {
             if (!ht.empty()) ht.erase(ht.find_last_not_of(" \t\n\r") + 1);
 
             if (!ht.empty()) {
-                ht = process_template_body(ht, in_dsc, dsc_rows, in_par, par_items);
-                ht = resolve_wiki_links_in_text(ht);
+                bool local_dsc = false;
+                bool local_par = false;
+                bool local_dr = false;
+                std::vector<std::string> local_dsc_rows;
+                std::vector<std::string> local_par_items;
+                std::vector<std::string> local_dr_rows;
+                std::string local_dcl_code;
+                ht = process_template_body(ht, local_dsc, local_dsc_rows, local_par, local_par_items, local_dr, local_dr_rows, local_dcl_code, base_url);
+                ht = resolve_wiki_links_in_text(ht, base_url);
                 std::string hashes(std::max(std::size_t{2}, level - 1), '#');
                 result += "\n" + hashes + " " + ht + "\n";
             }
