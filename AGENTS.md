@@ -18,15 +18,16 @@ src/
 ├── main.cpp                  — entry point, config path resolution (macOS/Linux)
 ├── client/                   — cppreference.com HTTP client
 │   ├── search()              — HTML search → regex extract /cpp/ links
-│   └── get_page_content()    — MediaWiki JSON API → revision content
+│   ├── get_page_content()    — MediaWiki JSON API → revision content (unused)
+│   └── get_page_html()       — direct HTML fetch for parser
 ├── server/                   — MCP JSON-RPC 2.0 server
 │   ├── handle_initialize()   — protocol handshake
 │   ├── handle_tools_list()   — advertise cppreference/lookup tool
 │   ├── handle_tools_call()   — dispatch to thread pool with timeout
 │   └── handle_tools_call_sync() — search → cache lookup → fetch → parse → truncate
-├── parser/                   — Wikitext → minimal markdown converter
-│   ├── convert()             — main entry point (public API)
-│   └── [anonymous namespace] — parse_template_args, find_closing_braces, strip_templates, process_template, process_template_body, resolve_wiki_link, resolve_wiki_links_in_text, normalize_whitespace
+├── parser/                   — HTML → markdown converter
+│   ├── html_to_md.cpp/hpp    — cppreference::parser::convert_html_to_markdown()
+│   │   — fix_urls(), fix_cpp_spacing(), noise filtering
 ├── config/                   — JSON config file loader
 ├── cache/                    — TTL-based SQLite cache wrapper (thread-safe)
 │   ├── get()                 — mutex-locked, evict_expired every 50 calls
@@ -54,48 +55,34 @@ Namespaces match folder structure: `cppreference::client`, `cppreference::server
 - **Server logging**: `static std::mutex log_mutex_` prevents interleaved output from concurrent thread pool workers.
 - **Thread pool**: Worker threads process `handle_tools_call_sync` tasks with configurable timeout (5× client timeout).
 - **SQLite**: Opened with `SQLITE_OPEN_NOMUTEX` — all access must be synchronized by the caller (enforced via `Cache` mutex).
+- **html_md parser**: Thread-safe — concurrent `convert()` calls on the same `Converter` instance use per-call stack state (no mutable members).
 
 ## Parser Design
 
 ### Public API
-- `convert(std::string_view wikitext) → std::string` — single entry point, processes wikitext → markdown
+- `convert_html_to_markdown(const std::string& html) → std::string` — single entry point, processes HTML → markdown
 
-### Internal Functions (anonymous namespace)
-- `parse_template_args()` — splits `{{name|arg1|arg2|named=val}}` args by top-level `|`, respecting `{{ }}` nesting
-- `find_closing_braces()` — matches `}}` with depth tracking for nested `{{ }}`
-- `strip_templates()` — removes `{{ }}` markers, keeps first positional arg (e.g., `{{named req|Container}}` → `Container`)
-- `process_template()` — dispatches template body to markdown output (code blocks, inline code, noise)
-- `process_template_body()` — processes `{{ }}` templates in prose/wiki-link display text
-- `resolve_wiki_link()` — `[[target|display]]` → processed display text; `[[target]]` → leaf name
-- `resolve_wiki_links_in_text()` — resolves `[[ ]]` in headings, respecting `{{ }}` nesting
-- `normalize_whitespace()` — collapses multiple spaces/newlines, passes code fences verbatim
+### html_md Library (FetchContent)
+- Fetched from `https://github.com/AbstractSoft/html_md.git` via CMake FetchContent
+- Powered by gumbo-parser (HTML5 parser, Apache 2.0)
+- Thread-safe: concurrent `convert()` calls on the same instance
+- Converts: headings, paragraphs, lists, links, images, code blocks, blockquotes, tables
+- Custom tag handlers via `setTagHandler()`
+- Built as `libhtml_md.a` static library, linked to cppreference-mcp
 
-### Template Handling
-- **Noise templates**: `par begin/end/inc`, `dsc begin/end/inc`, `ftm begin/end`, `cpp/navbar*`, `langlinks`, `todo`, `cpp/title` → dropped
-- **Inline code**: `{{tt|...}}`, `{{lc|...}}`, `{{c/core|...}}`, `{{c|...}}`, `{{lcf|...}}`, `{{ltt|...}}` → `` `...` ``
-- **Concepts**: `{{named req|...}}`, `{{lconcept|...}}` → plain text
-- **Math**: `{{math|...}}` → plain text (Unicode preserved)
-- **Declarations**: `{{dcl|...}}`, `{{ddcl|...}}` → fenced `` ```cpp `` blocks; `{{dcl header|...}}` → `// #include <...>`
-- **Examples**: `{{example|...}}`, `{{cpp/example|...}}` → code block + output text
-- **Source code**: `{{source|...}}` → fenced code block with language
-- **Revision notes**: `{{rev inl|...}}`, `{{rrev|...}}` → last positional arg
-- **Mark templates**: `{{mark|since=...}}`, `{{mark|until=...}}`, `{{mark|rev=...}}` → `*(since ...)*`
-- **Constexpr**: `{{cpp/is_constexpr|since=c++11}}` → `(constexpr since c++11)`
-- **Unknown templates**: silently dropped
+### gumbo-parser (FetchContent)
+- Fetched from `https://codeberg.org/gumbo-parser/gumbo-parser.git` v0.13.2 via FetchContent
+- C99 HTML5 parser, Apache 2.0
+- Meson-based project — CMake wrapper generated at configure time to build as static library
+- Handles HTML5 parsing with proper DOM tree construction
 
-### Stateful Block Processing
-- **dsc blocks** (`{{dsc begin}}` → `{{dsc end}}`): Collect rows into `dsc_rows`, render as Markdown table on `{{dsc end}}`
-  - `{{dsc hitem|...|...}}` → header row + separator marker
-  - `{{dsc class|...|...}}`, `{{dsc function|...|...}}`, etc. → data rows
-  - `{{dsc *}}` fallback → generic item row
-- **par blocks** (`{{par begin}}` → `{{par end}}`): Collect items into `par_items`, render as bullet list on `{{par end}}`
-  - `{{par|name|desc}}` → `- \`name\` — desc`
-
-### Wiki Link Resolution
-- Main loop processes `[[ ]]` before `{{ }}` to handle `[[link|{{c/core|bool}}]]` correctly
-- Display text with templates is processed via `process_template_body()`
-- Headings resolve wiki links via `resolve_wiki_links_in_text()` after template processing
-- No display text → uses path leaf (`cpp/container/vector` → `vector`)
+### Post-Processing (html_to_md.cpp)
+- `fix_urls()` — rewrites `(/` relative URLs to full `https://www.cppreference.com` URLs
+- `fix_cpp_spacing()` — inserts spaces after C++ keywords (`template`, `class`, `namespace`, `using`, `typedef`) when followed immediately by an alpha character
+- Noise filtering: removes navigation headings, tool links, view links, action links, variant links, search links, "In other languages", categories, edit links, nav list items, navigation table rows
+- Section extraction: finds first useful `###` section (Template parameters) to last useful section
+- **Section trimming**: analyzes markdown from the end, identifies noise sections (See also, External links, References, Categories, Navigation, Tools, etc.) vs relevant sections (Example, Defect reports, Notes, Member functions, etc.), and removes trailing noise sections
+- Blank line normalization: collapses 3+ consecutive blank lines to 2
 
 ### Key Design Decisions
 
@@ -105,7 +92,7 @@ Namespaces match folder structure: `cppreference::client`, `cppreference::server
 - Returns first `cpp/` path (e.g., `cpp/container/vector`).
 
 ### Page Content
-- Uses MediaWiki REST API (`/api.php?action=query&prop=revisions&rvprop=content&format=json`) which works reliably with `cpp/` title paths.
+- Fetches rendered HTML directly via `get_page_html(title)` — no wikitext processing needed.
 
 ### Cache Eviction
 - **Before insert**: size check and eviction happen before `put()` to prevent exceeding `max_size_mb`.
@@ -123,7 +110,14 @@ Namespaces match folder structure: `cppreference::client`, `cppreference::server
 Fetched at configure time via CMake FetchContent:
 - `nlohmann/json` v3.11.3 (JSON)
 - `yhirose/cpp-httplib` v0.16.0 (HTTP client, SSL-enabled)
-- System SQLite3 + OpenSSL (required by cpp-httplib)
+- `AbstractSoft/thread_pool` (async task queue)
+- `AbstractSoft/configuration` (JSON config loading, header-only)
+- `AbstractSoft/html_md` (HTML-to-markdown converter, Apache 2.0)
+- `gumbo-parser` 0.13.2 (HTML5 parser, Apache 2.0) — fetched by html_md
+
+System:
+- SQLite3
+- OpenSSL (required by cpp-httplib)
 
 ## Configuration
 

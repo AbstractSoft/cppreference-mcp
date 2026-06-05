@@ -22,9 +22,12 @@ public:
     Client& operator=(Client&&) = delete;
 
     // Returns the first matching cppreference page title (e.g., "cpp/algorithm/find")
-    std::optional<std::string> search(std::string_view query);
+    // Returns {title, retries} where retries is the number of retry attempts made
+    std::pair<std::optional<std::string>, int> search(std::string_view query);
     // Returns raw MediaWiki wikitext for a given page title
     std::optional<std::string> get_page_content(std::string_view title);
+    // Returns rendered HTML for a given page title
+    std::optional<std::string> get_page_html(std::string_view title);
 
 private:
     std::string base_url_;

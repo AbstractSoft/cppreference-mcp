@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.27)
-project(cppreference-mcp VERSION 1.0.0 LANGUAGES CXX)
+project(cppreference-mcp VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -70,8 +70,67 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(thread_pool)
 
+# Fetch configuration from GitHub (header-only, fetch sources only)
+FetchContent_Declare(
+    configuration
+    GIT_REPOSITORY https://github.com/AbstractSoft/configuration.git
+    GIT_TAG main
+)
+cmake_policy(PUSH)
+cmake_policy(SET CMP0169 OLD)
+FetchContent_GetProperties(configuration)
+if(NOT configuration_POPULATED)
+    FetchContent_Populate(configuration)
+    add_library(configuration_lib INTERFACE)
+    target_include_directories(configuration_lib INTERFACE
+        ${configuration_SOURCE_DIR}/include
+    )
+    target_link_libraries(configuration_lib INTERFACE nlohmann_json::nlohmann_json)
+    add_library(configuration::configuration ALIAS configuration_lib)
+endif()
+cmake_policy(POP)
+
 # SQLite3
 find_package(SQLite3 REQUIRED)
+
+# html_md library (HTML-to-markdown converter, depends on gumbo-parser)
+include(FetchContent)
+
+FetchContent_Declare(
+        gumbo
+        GIT_REPOSITORY https://codeberg.org/gumbo-parser/gumbo-parser.git
+        GIT_TAG 0.13.2
+        GIT_SHALLOW TRUE
+)
+
+FetchContent_Declare(
+        html_md
+        GIT_REPOSITORY https://github.com/AbstractSoft/html_md.git
+        GIT_TAG main
+        GIT_SHALLOW TRUE
+)
+
+FetchContent_GetProperties(gumbo)
+if(NOT gumbo_POPULATED)
+    FetchContent_Populate(gumbo)
+    file(GLOB _gumbo_c_files "${gumbo_SOURCE_DIR}/src/*.c")
+    set(_gumbo_cmake_content "cmake_minimum_required(VERSION 3.15)\nproject(gumbo C)\nset(CMAKE_C_STANDARD 99)\nset(CMAKE_C_STANDARD_REQUIRED ON)\nset(_gumbo_srcs\n")
+    foreach(_src IN LISTS _gumbo_c_files)
+        string(APPEND _gumbo_cmake_content "    \"${_src}\"\n")
+    endforeach()
+    string(APPEND _gumbo_cmake_content ")\nadd_library(gumbo STATIC \${_gumbo_srcs})\ntarget_include_directories(gumbo PUBLIC\n    \"${gumbo_SOURCE_DIR}/src\"\n)\n")
+    file(WRITE "${gumbo_BINARY_DIR}/CMakeLists.txt" "${_gumbo_cmake_content}")
+    add_subdirectory("${gumbo_BINARY_DIR}" "${gumbo_BINARY_DIR}/_build")
+endif()
+
+FetchContent_GetProperties(html_md)
+if(NOT html_md_POPULATED)
+    FetchContent_Populate(html_md)
+endif()
+
+add_library(html_md STATIC "${html_md_SOURCE_DIR}/src/converter.cpp")
+target_include_directories(html_md PUBLIC "${html_md_SOURCE_DIR}/include")
+target_link_libraries(html_md PRIVATE gumbo)
 
 add_executable(cppreference-mcp
         src/main.cpp
@@ -81,7 +140,7 @@ add_executable(cppreference-mcp
         src/db/sqlite_db.hpp
         src/db/sqlite_db.cpp
         src/cache/cache.cpp
-        src/parser/parser.cpp
+        src/parser/html_to_md.cpp
 )
 
 target_compile_definitions(cppreference-mcp PRIVATE CPPHTTPLIB_OPENSSL_SUPPORT)
@@ -90,16 +149,21 @@ target_link_libraries(cppreference-mcp PRIVATE
         httplib::httplib
         ${SQLITE3_LIBRARIES}
         thread_pool::thread_pool
+        configuration::configuration
+        html_md
 )
-if(NOT SQLITE3_LIBRARIES)
-    target_link_libraries(cppreference-mcp PRIVATE sqlite3)
-endif()
 
 target_include_directories(cppreference-mcp PRIVATE
         ${CMAKE_SOURCE_DIR}/src
         ${cpp-httplib_SOURCE_DIR}
         ${nlohmann_json_SOURCE_DIR}/single_include
+        ${configuration_SOURCE_DIR}/include
+        ${thread_pool_SOURCE_DIR}/include
+        ${html_md_SOURCE_DIR}/include
 )
+if(NOT SQLITE3_LIBRARIES)
+    target_link_libraries(cppreference-mcp PRIVATE sqlite3)
+endif()
 
 # Copy config.json to output directory alongside the binary
 add_custom_command(TARGET cppreference-mcp POST_BUILD
@@ -108,10 +172,13 @@ add_custom_command(TARGET cppreference-mcp POST_BUILD
         "$<TARGET_FILE_DIR:cppreference-mcp>/config.json"
 )
 
-# Clean up thread_pool artifacts leaked into out/ by its own POST_BUILD
+# Clean up FetchContent artifacts leaked into out/
 add_custom_command(TARGET cppreference-mcp POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_FILE_DIR:cppreference-mcp>/thread_pool.hpp"
         COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_FILE_DIR:cppreference-mcp>/libthread_pool.a"
+        COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_FILE_DIR:cppreference-mcp>/libgumbo.a"
+        COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_FILE_DIR:cppreference-mcp>/libhtml_md.a"
+        COMMAND ${CMAKE_COMMAND} -E rm -f "$<TARGET_FILE_DIR:cppreference-mcp>/converter.hpp"
 )
 
 # C++23 features

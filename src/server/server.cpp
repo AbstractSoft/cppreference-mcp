@@ -2,11 +2,19 @@
 
 #include <algorithm>
 #include <csignal>
+#include <filesystem>
 #include <format>
+#include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <unordered_map>
 
-#include "parser/parser.hpp"
+#include "parser/html_to_md.hpp"
+
+#include <cstdio>
+#include <memory>
+#include <sstream>
+#include <stdexcept>
 
 namespace cppreference::server
 {
@@ -19,7 +27,137 @@ namespace cppreference::server
 
         std::string json_to_string(const nlohmann::json& j)
         {
-            return j.dump();
+            try {
+                return j.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+            } catch (const std::exception& e) {
+                return std::string{"JSON serialization error: "} + e.what();
+            }
+        }
+
+        // Map common queries to their cppreference page titles
+        std::string query_to_title(const std::string& query)
+        {
+            static const std::unordered_map<std::string, std::string> map = {
+                {"std::vector", "cpp/container/vector"},
+                {"std::map", "cpp/container/map"},
+                {"std::unordered_map", "cpp/container/unordered_map"},
+                {"std::string", "cpp/string/basic_string"},
+                {"std::shared_ptr", "cpp/memory/shared_ptr"},
+                {"std::unique_ptr", "cpp/memory/unique_ptr"},
+                {"std::thread", "cpp/thread/thread"},
+                {"std::async", "cpp/thread/async"},
+                {"std::future", "cpp/thread/future"},
+                {"std::promise", "cpp/thread/promise"},
+                {"std::atomic", "cpp/atomic/atomic"},
+                {"std::mutex", "cpp/thread/mutex"},
+                {"std::lock_guard", "cpp/thread/lock_guard"},
+                {"std::unique_lock", "cpp/thread/unique_lock"},
+                {"std::condition_variable", "cpp/thread/condition_variable"},
+                {"std::function", "cpp/utility/functional/function"},
+                {"std::bind", "cpp/utility/functional/bind"},
+                {"std::make_shared", "cpp/memory/make_shared"},
+                {"std::make_unique", "cpp/memory/make_unique"},
+                {"std::optional", "cpp/utility/optional/optional"},
+                {"std::variant", "cpp/utility/variant/variant"},
+                {"std::any", "cpp/utility/any/any"},
+                {"std::tuple", "cpp/utility/tuple/tuple"},
+                {"std::pair", "cpp/utility/pair/pair"},
+                {"std::array", "cpp/array/array"},
+                {"std::deque", "cpp/container/deque"},
+                {"std::list", "cpp/container/list"},
+                {"std::forward_list", "cpp/container/forward_list"},
+                {"std::set", "cpp/container/set"},
+                {"std::unordered_set", "cpp/container/unordered_set"},
+                {"std::stack", "cpp/container/stack"},
+                {"std::queue", "cpp/container/queue"},
+                {"std::priority_queue", "cpp/container/priority_queue"},
+                {"std::algorithm", "cpp/algorithm/algorithm"},
+                {"std::sort", "cpp/algorithm/sort"},
+                {"std::find", "cpp/algorithm/find"},
+                {"std::transform", "cpp/algorithm/transform"},
+                {"std::copy", "cpp/algorithm/copy"},
+                {"std::move", "cpp/utility/move/move"},
+                {"std::forward", "cpp/utility/forward/forward"},
+                {"std::swap", "cpp/utility/swap/swap"},
+                {"std::enable_shared_from_this", "cpp/memory/enable_shared_from_this"},
+                {"std::weak_ptr", "cpp/memory/weak_ptr"},
+                {"std::iostream", "cpp/io/cin"},
+                {"std::ifstream", "cpp/io/basic_ifstream"},
+                {"std::ofstream", "cpp/io/basic_ofstream"},
+                {"std::stringstream", "cpp/io/basic_stringstream"},
+                {"std::filesystem", "cpp/filesystem/directory_iterator"},
+                {"std::chrono", "cpp/chrono/chrono"},
+                {"std::regex", "cpp/regex/regex"},
+                {"uint64_t", "cpp/utility/integer/uint64_t"},
+                {"int64_t", "cpp/utility/integer/int64_t"},
+                {"int32_t", "cpp/utility/integer/int32_t"},
+                {"int8_t", "cpp/utility/integer/int8_t"},
+                {"size_t", "cpp/utility/integer/size_t"},
+                {"ptrdiff_t", "cpp/utility/integer/ptrdiff_t"},
+                {"nullptr_t", "cpp/utility/nullptr_t/nullptr_t"},
+            };
+
+            auto it = map.find(query);
+            if (it != map.end())
+            {
+                return it->second;
+            }
+
+            // Strip "std::" prefix and try common namespaces
+            std::string base = query;
+            if (base.substr(0, 5) == "std::")
+            {
+                base = base.substr(5);
+            }
+
+            // Remove template parameters
+            auto lt = base.find('<');
+            if (lt != std::string::npos)
+            {
+                base = base.substr(0, lt);
+            }
+
+            // Try common namespaces
+            if (base == "vector" || base == "map" || base == "set" || base == "deque" ||
+                base == "list" || base == "array" || base == "stack" || base == "queue" ||
+                base == "unordered_map" || base == "unordered_set" || base == "forward_list")
+            {
+                return "cpp/container/" + base;
+            }
+            if (base == "string" || base == "wstring")
+            {
+                return "cpp/string/basic_string";
+            }
+            if (base == "shared_ptr" || base == "unique_ptr" || base == "weak_ptr" ||
+                base == "make_shared" || base == "make_unique" || base == "atomic" ||
+                base == "enable_shared_from_this")
+            {
+                return "cpp/memory/" + base;
+            }
+            if (base == "thread" || base == "async" || base == "future" || base == "promise" ||
+                base == "mutex" || base == "lock_guard" || base == "unique_lock" ||
+                base == "condition_variable")
+            {
+                return "cpp/thread/" + base;
+            }
+            if (base == "optional" || base == "variant" || base == "any" || base == "tuple" ||
+                base == "pair" || base == "function" || base == "bind" ||
+                base == "move" || base == "forward" || base == "swap")
+            {
+                return "cpp/utility/" + base;
+            }
+            if (base == "algorithm" || base == "sort" || base == "find" || base == "transform" ||
+                base == "copy")
+            {
+                return "cpp/algorithm/" + base;
+            }
+            if (base == "filesystem" || base == "chrono" || base == "regex")
+            {
+                return "cpp/" + base;
+            }
+
+            // Fallback: try cpp/ prefix
+            return "cpp/" + base;
         }
 
         httplib::Server* g_http_server = nullptr;
@@ -47,7 +185,6 @@ namespace cppreference::server
               cfg.get_cache_config().max_size_mb
           }
           , pool_{cfg.get_server_config().thread_pool_size}
-          , max_output_chars_{cfg.get_content_config().max_output_chars}
     {
         unsigned int http_port = cfg.get_server_config().http_port;
         if (http_port > 0)
@@ -119,7 +256,6 @@ namespace cppreference::server
                 (std::string{"Cache enabled: "} + std::string{
                     config_.get_cache_config().enabled ? "yes" : "no"
                 }).c_str());
-            log_message((std::string{"Max output chars: "} + std::to_string(max_output_chars_)).c_str());
             log_message((std::string{"Cache initialized: "} + config_.get_cache_config().path).c_str());
 
             // stdio mode
@@ -242,7 +378,12 @@ namespace cppreference::server
             {
                 auto future = pool_.submit([this, params]() -> nlohmann::json
                 {
-                    return handle_tools_call_sync(params);
+                    try {
+                        return handle_tools_call_sync(params);
+                    } catch (const std::exception& e) {
+                        log_message((std::string{"Exception in handle_tools_call_sync: "} + e.what()).c_str());
+                        throw;
+                    }
                 });
 
                 auto timeout = std::chrono::seconds{config_.get_client_config().timeout_seconds * 5};
@@ -334,10 +475,27 @@ namespace cppreference::server
             };
         }
 
-        auto title = client_.search(query).value_or(query);
+        auto [title_opt, retries] = client_.search(query);
+        std::string title;
+
+        if (title_opt.has_value())
+        {
+            title = title_opt.value();
+            if (retries > 0)
+            {
+                log_message((std::string{"Search succeeded after "} + std::to_string(retries) + " retries").c_str());
+            }
+        }
+        else
+        {
+            title = query_to_title(query);
+            log_message((std::string{"Search unavailable, using fallback title: "} + title).c_str());
+        }
 
         std::string content;
+        std::string html;
         bool has_cache = false;
+        int search_retries = retries;
 
         if (config_.get_cache_config().enabled)
         {
@@ -356,17 +514,19 @@ namespace cppreference::server
 
         if (!has_cache)
         {
-            std::string raw_wikitext = client_.get_page_content(title).value_or("No documentation found.");
+            html = client_.get_page_html(title).value_or("");
 
-            if (config_.get_cache_config().enabled && !raw_wikitext.empty() && raw_wikitext !=
-                "No documentation found.")
+            if (!html.empty())
             {
-                content = parser::convert(raw_wikitext, config_.get_client_config().base_url);
-                cache_.put("page:" + title, content);
-            }
-            else
-            {
-                content = std::move(raw_wikitext);
+                try {
+                    content = cppreference::parser::convert_html_to_markdown(html);
+                    if (config_.get_cache_config().enabled) {
+                        cache_.put("page:" + title, content);
+                    }
+                } catch (const std::exception& e) {
+                    log_message((std::string{"Parser error: "} + e.what()).c_str());
+                    content = "Error parsing documentation: " + std::string(e.what());
+                }
             }
         }
 
@@ -375,13 +535,32 @@ namespace cppreference::server
             content = "No documentation found.";
         }
 
-        if (content.size() > max_output_chars_)
+        if (config_.get_content_config().dump_files && !html.empty())
         {
-            content = content.substr(0, max_output_chars_) + "... [truncated]";
+            try {
+                std::filesystem::create_directories("files");
+                std::string safe_title = title;
+                std::replace(safe_title.begin(), safe_title.end(), '/', '_');
+                std::replace(safe_title.begin(), safe_title.end(), ' ', '_');
+
+                std::string markdown_path = "files/" + safe_title + ".md";
+                std::string html_path = "files/" + safe_title + ".html";
+
+                std::ofstream(markdown_path) << content;
+                std::ofstream(html_path) << html;
+
+                log_message((std::string{"Dumped: "} + markdown_path + ", and " + html_path).c_str());
+            } catch (const std::exception& e) {
+                log_message((std::string{"File dump error: "} + e.what()).c_str());
+            }
         }
 
-        return nlohmann::json{
-            {"content", {{{"type", "text"}, {"text", content}}}}
+       return nlohmann::json{
+            {"content", {{{"type", "text"}, {"text", content}}}},
+            {"metadata", {
+                {"search_retries", search_retries},
+                {"title", title}
+            }}
         };
     }
 

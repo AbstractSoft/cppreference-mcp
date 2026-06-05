@@ -13,7 +13,7 @@
 #include "config/config.hpp"
 
 #include <httplib.h>
-#include "thread_pool/thread_pool.hpp"
+#include "thread_pool.hpp"
 
 namespace cppreference::server
 {
@@ -38,7 +38,6 @@ namespace cppreference::server
         client::Client client_;
         cache::Cache cache_;
         ThreadPool pool_;
-        std::size_t max_output_chars_ = 0;
 
         std::unique_ptr<httplib::Server> http_server_;
         std::mutex log_mutex_;
