@@ -124,6 +124,38 @@ System:
 `config.json` is copied to the output directory alongside the binary on every build.
 Required sections: `cache`, `client`, `content`, `server`. All validated at startup.
 
+```json
+{
+    "cache": { "enabled": true, "path": "./cache.db", "default_ttl_seconds": 86400, "max_size_mb": 50 },
+    "client": { "base_url": "https://en.cppreference.com", "timeout_seconds": 30, "rate_limit_retry_delay_ms": 1000, "max_retries": 3 },
+    "content": { "dump_files": true },
+    "server": { "thread_pool_size": 10, "http_port": 8082 }
+}
+```
+
+- `http_port` > 0 → HTTP server mode (JSON-RPC over POST `/`); 0 → stdio mode
+- `dump_files` → saves parsed `.md` and raw `.html` to `files/` directory
+
+## SQLite Schema
+
+```sql
+CREATE TABLE IF NOT EXISTS cache (
+    key TEXT PRIMARY KEY,
+    content TEXT NOT NULL,
+    expires_at INTEGER NOT NULL
+);
+```
+
+- `key`: `page:<title>` (e.g., `page:cpp/container/vector`)
+- `content`: Parsed markdown
+- `expires_at`: Unix timestamp (seconds)
+
+## Rate Limit Handling
+
+- Detect HTTP 429/503 from cppreference.com
+- Retry after `rate_limit_retry_delay_ms` (up to `max_retries` attempts)
+- Cache hit → serve from cache (respects TTL), no HTTP call
+
 ## Tooling
 
 - C++23 required (`#error` guard in source)
