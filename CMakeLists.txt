@@ -68,7 +68,9 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/AbstractSoft/thread_pool.git
     GIT_TAG main
 )
+set(BUILD_TESTS OFF)
 FetchContent_MakeAvailable(thread_pool)
+unset(BUILD_TESTS)
 
 # Fetch configuration from GitHub (header-only, fetch sources only)
 FetchContent_Declare(
@@ -183,3 +185,36 @@ add_custom_command(TARGET cppreference-mcp POST_BUILD
 
 # C++23 features
 target_compile_features(cppreference-mcp PRIVATE cxx_std_23)
+
+# Tests
+option(BUILD_TESTS "Build unit tests" OFF)
+
+if(BUILD_TESTS)
+    enable_testing()
+
+    FetchContent_Declare(
+        googletest
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.14.0
+    )
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googletest)
+
+    add_executable(cppreference-mcp-tests
+        tests/parser_tests.cpp
+        src/parser/html_to_md.cpp
+    )
+
+    target_link_libraries(cppreference-mcp-tests PRIVATE
+        GTest::gtest_main
+        html_md
+    )
+
+    target_include_directories(cppreference-mcp-tests PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
+        ${html_md_SOURCE_DIR}/include
+    )
+
+    include(GoogleTest)
+    gtest_discover_tests(cppreference-mcp-tests)
+endif()

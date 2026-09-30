@@ -111,20 +111,21 @@ namespace cppreference::parser
     std::string fix_cpp_spacing(const std::string& input)
     {
         std::string result = input;
-        auto keywords = std::vector<std::string>{"template", "class", "namespace", "using", "typedef"};
-        for (const auto& kw : keywords)
+        // Keywords that can be prefixes of English words: only fix before uppercase
+        auto strict_keywords = std::vector<std::string>{"template", "class"};
+        // Keywords that are unlikely to prefix English words: fix before any alpha
+        auto loose_keywords = std::vector<std::string>{"namespace", "using", "typedef"};
+
+        for (const auto& kw : strict_keywords)
         {
             auto kw_len = kw.size();
             size_t pos = 0;
             while ((pos = result.find(kw, pos)) != std::string::npos)
             {
-                // Word boundary: char before keyword must be non-alphanumeric (or start of string)
                 bool valid_start = (pos == 0) ||
                     (!std::isalnum(static_cast<unsigned char>(result[pos - 1])));
-                // Char after keyword must be alpha (the case we want to fix)
                 bool needs_space = (pos + kw_len < result.size()) &&
-                    std::isalpha(static_cast<unsigned char>(result[pos + kw_len]));
-
+                    std::isupper(static_cast<unsigned char>(result[pos + kw_len]));
                 if (valid_start && needs_space)
                 {
                     result.insert(pos + kw_len, " ");
@@ -136,6 +137,29 @@ namespace cppreference::parser
                 }
             }
         }
+
+        for (const auto& kw : loose_keywords)
+        {
+            auto kw_len = kw.size();
+            size_t pos = 0;
+            while ((pos = result.find(kw, pos)) != std::string::npos)
+            {
+                bool valid_start = (pos == 0) ||
+                    (!std::isalnum(static_cast<unsigned char>(result[pos - 1])));
+                bool needs_space = (pos + kw_len < result.size()) &&
+                    std::isalpha(static_cast<unsigned char>(result[pos + kw_len]));
+                if (valid_start && needs_space)
+                {
+                    result.insert(pos + kw_len, " ");
+                    pos += kw_len + 1;
+                }
+                else
+                {
+                    pos += kw_len;
+                }
+            }
+        }
+
         return result;
     }
 
