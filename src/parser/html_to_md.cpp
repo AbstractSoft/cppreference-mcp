@@ -118,10 +118,14 @@ namespace cppreference::parser
             size_t pos = 0;
             while ((pos = result.find(kw, pos)) != std::string::npos)
             {
-                if (pos + kw_len < result.size() &&
-                    result[pos + kw_len] != ' ' &&
-                    result[pos + kw_len] != '\n' &&
-                    std::isalpha(static_cast<unsigned char>(result[pos + kw_len])))
+                // Word boundary: char before keyword must be non-alphanumeric (or start of string)
+                bool valid_start = (pos == 0) ||
+                    (!std::isalnum(static_cast<unsigned char>(result[pos - 1])));
+                // Char after keyword must be alpha (the case we want to fix)
+                bool needs_space = (pos + kw_len < result.size()) &&
+                    std::isalpha(static_cast<unsigned char>(result[pos + kw_len]));
+
+                if (valid_start && needs_space)
                 {
                     result.insert(pos + kw_len, " ");
                     pos += kw_len + 1;
@@ -139,10 +143,17 @@ namespace cppreference::parser
     {
         std::string result = input;
         size_t pos = 0;
-        while ((pos = result.find("(/", pos)) != std::string::npos)
+        while ((pos = result.find("(<", pos)) != std::string::npos)
         {
-            result.replace(pos, 1, "(https://www.cppreference.com");
-            pos += 30;
+            if (pos + 2 < result.size() && result[pos + 2] == '/')
+            {
+                result.replace(pos, 2, "(<https://www.cppreference.com");
+                pos += 31;
+            }
+            else
+            {
+                pos += 2;
+            }
         }
         return result;
     }
@@ -280,17 +291,14 @@ namespace cppreference::parser
 
     static bool is_nav_heading(const std::string& line)
     {
-        if (line.size() >= 17 && line.substr(0, 17) == "##### Navigation") { return true; }
-        if (line.size() >= 14 && line.substr(0, 14) == "##### Tools[#](") { return true; }
-        if (line.size() >= 8 && line.substr(0, 8) == "##### Tools") { return true; }
-        if (line.size() >= 16 && line.substr(0, 16) == "##### Views[#](") { return true; }
-        if (line.size() >= 9 && line.substr(0, 9) == "##### Views") { return true; }
-        if (line.size() >= 17 && line.substr(0, 17) == "##### Actions[#](") { return true; }
-        if (line.size() >= 10 && line.substr(0, 10) == "##### Actions") { return true; }
-        if (line.size() >= 18 && line.substr(0, 18) == "##### Variants[#](") { return true; }
-        if (line.size() >= 11 && line.substr(0, 11) == "##### Variants") { return true; }
-        if (line.size() >= 16 && line.substr(0, 16) == "##### Search[#](") { return true; }
-        if (line.size() >= 9 && line.substr(0, 9) == "##### Search") { return true; }
+        static const char* nav_headings[] = {
+            "##### Navigation", "##### Tools", "##### Views",
+            "##### Actions", "##### Variants", "##### Search"
+        };
+        for (const auto* h : nav_headings)
+        {
+            if (line.starts_with(h)) { return true; }
+        }
         return false;
     }
 
@@ -335,7 +343,7 @@ namespace cppreference::parser
         if (line.find("In other languages") != std::string::npos) { return true; }
         if (line.find("[Categories]") != std::string::npos) { return true; }
         if (line.find("[[edit]]") != std::string::npos) { return true; }
-        if (line.find("From cppreference.com<") != std::string::npos) { return true; }
+        if (line.find("From cppreference.com") != std::string::npos) { return true; }
         if (line.find("[]()#") != std::string::npos) { return true; }
         if (line == "#") { return true; }
 
@@ -350,11 +358,8 @@ namespace cppreference::parser
         // Orphaned heading markers without text: #####
         if (line == "#####") { return true; }
 
-        // Empty code blocks: ` on its own line (after whitespace)
-        std::string trimmed = trim_string(line);
-        if (trimmed == "`") { return true; }
-
         // Orphaned punctuation on its own line
+        std::string trimmed = trim_string(line);
         if (trimmed == ":" || trimmed == ";" || trimmed == ",") { return true; }
 
         return false;
@@ -416,10 +421,6 @@ namespace cppreference::parser
             if (trimmed.empty()) { continue; }
             // Skip section headings (### or ####)
             if (trimmed.size() >= 3 && trimmed[0] == '#' && trimmed[1] == '#') { continue; }
-            if (trimmed[0] == '|' || trimmed[0] == '`' ||
-                trimmed[0] == '>' || trimmed[0] == '*') { continue; }
-            // Skip list items (starting with -)
-            if (trimmed[0] == '-') { continue; }
             // Skip category-like links
             if (trimmed.find("[Category:") != std::string::npos) { continue; }
             if (trimmed.find("[Pages using deprecated") != std::string::npos) { continue; }
@@ -427,7 +428,7 @@ namespace cppreference::parser
             if (trimmed.size() >= 4 && trimmed[0] == '-' && trimmed[1] == ' ' &&
                 trimmed[2] == '[' && trimmed.find("cppreference.com/cpp/") != std::string::npos) { continue; }
             if (trimmed.find("[[edit]]") != std::string::npos) { continue; }
-            // If we found any other non-empty line, it's relevant
+            // Table rows, list items, code blocks, blockquotes are all relevant content
             return true;
         }
         return false;
@@ -615,15 +616,14 @@ namespace cppreference::parser
             pos += 2;
         }
 
-        // Clean up lines that are only whitespace
+        // Remove whitespace-only lines (spaces/tabs/nb-spaces) but keep truly empty lines
         {
             std::vector<std::string> lines;
             std::istringstream stream(markdown);
             std::string line;
             while (std::getline(stream, line))
             {
-                std::string trimmed = trim_string(line);
-                if (trimmed.empty()) { continue; }
+                if (!line.empty() && trim_string(line).empty()) { continue; }
                 lines.push_back(line);
             }
             markdown.clear();
