@@ -326,11 +326,11 @@ namespace cppreference::server
         if (method == "initialize")
         {
             response["result"] = {
-                {"protocolVersion", "2024-11-05"},
+                {"resultType", "complete"},
+                {"protocolVersion", "2026-07-28"},
                 {
                     "capabilities", {
-                        {"tools", {{"listChanged", false}}},
-                        {"resources", nlohmann::json::object()}
+                        {"tools", {{"listChanged", false}}}
                     }
                 },
                 {
@@ -344,10 +344,12 @@ namespace cppreference::server
         else if (method == "tools/list")
         {
             response["result"] = {
+                {"resultType", "complete"},
                 {
                     "tools", {
                         {
-                            {"name", "cppreference/lookup"},
+                            {"name", "cppreference-lookup"},
+                            {"title", "C++ Reference Lookup"},
                             {"description", "Search cppreference.com for C++ documentation"},
                             {
                                 "inputSchema", {
@@ -368,9 +370,9 @@ namespace cppreference::server
         else if (method == "tools/call")
         {
             auto tool_name = params.value("name", "");
-            if (tool_name != "cppreference/lookup")
+            if (tool_name != "cppreference-lookup")
             {
-                response["error"] = {{"code", -32601}, {"message", std::format("Tool not found: {}", tool_name)}};
+                response["error"] = {{"code", -32602}, {"message", std::format("Unknown tool: {}", tool_name)}};
                 return response;
             }
 
@@ -389,7 +391,11 @@ namespace cppreference::server
                 auto timeout = std::chrono::seconds{config_.get_client_config().timeout_seconds * 5};
                 if (future.wait_for(timeout) != std::future_status::ready)
                 {
-                    response["error"] = {{"code", -32002}, {"message", "Request timed out"}};
+                    response["result"] = {
+                        {"resultType", "complete"},
+                        {"content", {{{"type", "text"}, {"text", "Request timed out"}}}},
+                        {"isError", true}
+                    };
                 }
                 else
                 {
@@ -471,11 +477,21 @@ namespace cppreference::server
         if (query.empty())
         {
             return nlohmann::json{
-                {"content", {{{"type", "text"}, {"text", "Missing 'query' parameter"}}}}
+                {"resultType", "complete"},
+                {"content", {{{"type", "text"}, {"text", "Missing 'query' parameter"}}}},
+                {"isError", true}
             };
         }
 
-        auto [title_opt, retries] = client_.search(query);
+        // Strip template arguments for search (e.g., "std::shared_ptr<int>" → "std::shared_ptr")
+        std::string search_query = query;
+        auto lt = search_query.find('<');
+        if (lt != std::string::npos)
+        {
+            search_query = search_query.substr(0, lt);
+        }
+
+        auto [title_opt, retries] = client_.search(search_query);
         std::string title;
 
         if (title_opt.has_value())
@@ -555,12 +571,11 @@ namespace cppreference::server
             }
         }
 
-       return nlohmann::json{
+        bool is_error = (content == "No documentation found.");
+        return nlohmann::json{
+            {"resultType", "complete"},
             {"content", {{{"type", "text"}, {"text", content}}}},
-            {"metadata", {
-                {"search_retries", search_retries},
-                {"title", title}
-            }}
+            {"isError", is_error}
         };
     }
 

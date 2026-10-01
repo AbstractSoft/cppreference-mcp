@@ -105,7 +105,7 @@ std::pair<std::optional<std::string>, int> Client::search(std::string_view query
 
                 if (href.starts_with("/cpp/")) {
                     // Skip headers and experimental
-                    if (href.starts_with("/cpp/header/") || href.starts_with("/cpp/experimental/")) {
+                    if (href.starts_with("/cpp/header") || href.starts_with("/cpp/experimental")) {
                         pos = heading + 1;
                         continue;
                     }
@@ -128,7 +128,7 @@ std::pair<std::optional<std::string>, int> Client::search(std::string_view query
 
             std::string href = res->body.substr(link_start, href_end - link_start);
 
-            if (href.starts_with("/cpp/") && !href.starts_with("/cpp/header/") && !href.starts_with("/cpp/experimental/")) {
+            if (href.starts_with("/cpp/") && !href.starts_with("/cpp/header") && !href.starts_with("/cpp/experimental")) {
                 return {href.substr(1), retries};
             }
 
